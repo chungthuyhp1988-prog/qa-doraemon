@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0ea5e9;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #e0f2fe;
+  --color-on-primary-container: #0369a1;
+  
+  --color-background: #f8fafc;
+  --color-on-background: #0f172a;
+  
+  --color-surface: #ffffff;
+  --color-on-surface: #0f172a;
+  --color-surface-variant: #f1f5f9;
+  --color-on-surface-variant: #64748b;
+  
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8fafc;
+  --color-surface-container: #f1f5f9;
+  --color-surface-container-high: #e2e8f0;
+  --color-surface-container-highest: #cbd5e1;
+
+  --color-outline: #cbd5e1;
+  --color-outline-variant: #e2e8f0;
+
+  --color-secondary: #f59e0b;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fef3c7;
+  --color-on-secondary-container: #b45309;
+
+  --color-error: #ef4444;
+  --color-on-error: #ffffff;
+  --color-error-container: #fee2e2;
+  --color-on-error-container: #b91c1c;
+
+  --spacing-container-padding-desktop: 32px;
+  --spacing-container-padding-mobile: 16px;
+  --spacing-topbar-height: 72px;
+  --spacing-sidebar-width: 280px;
+  --spacing-gutter: 24px;
+  --spacing-margin-desktop: 32px;
+  --spacing-margin-mobile: 16px;
+
+  --font-playfair: "Playfair Display", ui-serif, Georgia, serif;
+  --font-inter: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --font-headline-lg: "Playfair Display";
+  --font-headline-md: "Playfair Display";
+  --font-headline-sm: "Playfair Display";
+  --font-label-md: "Inter";
+  --font-label-sm: "Inter";
+  --font-body-md: "Inter";
+  --font-body-sm: "Inter";
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-down: slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes slide-down {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-inter font-normal text-[16px] antialiased overflow-x-hidden min-h-screen selection:bg-primary/20;
+  }
+}
+
+.dark {
+  --color-background: #0f172a;
+  --color-on-background: #f8fafc;
+  
+  --color-surface: #1e293b;
+  --color-on-surface: #f8fafc;
+  --color-surface-variant: #334155;
+  --color-on-surface-variant: #94a3b8;
+  
+  --color-surface-container-lowest: #0f172a;
+  --color-surface-container-low: #1e293b;
+  --color-surface-container: #334155;
+  --color-surface-container-high: #475569;
+  --color-surface-container-highest: #64748b;
+
+  --color-outline: #475569;
+  --color-outline-variant: #334155;
+
+  --color-primary-container: #0c4a6e;
+  --color-on-primary-container: #e0f2fe;
+
+  --color-secondary-container: #78350f;
+  --color-on-secondary-container: #fef3c7;
+
+  --color-error-container: #7f1d1d;
+  --color-on-error-container: #fee2e2;
+}
