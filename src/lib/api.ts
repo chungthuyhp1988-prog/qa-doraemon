@@ -151,8 +151,54 @@ async function getAll<T>(
   }
 
   const totalCount = count ?? 0;
+  let rawData = (data as unknown as T[]) ?? [];
+
+  if (table === 'classes') {
+    const gradeOrder: Record<string, number> = {
+      nha_tre: 1,
+      mam: 2,
+      choi: 3,
+      la: 4
+    };
+    rawData = [...rawData].sort((a: any, b: any) => {
+      let orderA = 99;
+      let orderB = 99;
+      
+      // Determine grade order by grade_level column
+      if (a.grade_level && gradeOrder[a.grade_level]) {
+        orderA = gradeOrder[a.grade_level];
+      } else if (a.name) {
+        // Fallback to parsing name prefix
+        const lower = a.name.toLowerCase().trim();
+        if (lower.startsWith('shizuka')) orderA = 1;
+        else if (lower.startsWith('nobita')) orderA = 2;
+        else if (lower.startsWith('dorami')) orderA = 3;
+        else if (lower.startsWith('doraemon')) orderA = 4;
+      }
+      
+      // Determine grade order for B
+      if (b.grade_level && gradeOrder[b.grade_level]) {
+        orderB = gradeOrder[b.grade_level];
+      } else if (b.name) {
+        // Fallback to parsing name prefix
+        const lower = b.name.toLowerCase().trim();
+        if (lower.startsWith('shizuka')) orderB = 1;
+        else if (lower.startsWith('nobita')) orderB = 2;
+        else if (lower.startsWith('dorami')) orderB = 3;
+        else if (lower.startsWith('doraemon')) orderB = 4;
+      }
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      
+      // If same grade, sort numerically/alphabetically by name
+      return (a.name || '').localeCompare(b.name || '', 'vi', { numeric: true, sensitivity: 'base' });
+    });
+  }
+
   const paginated: PaginatedResponse<T> = {
-    data: (data as unknown as T[]) ?? [],
+    data: rawData,
     count: totalCount,
     page,
     pageSize,

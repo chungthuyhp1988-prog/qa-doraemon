@@ -30,6 +30,13 @@ const classFormSchema = z.object({
 
 type ClassFormValues = z.infer<typeof classFormSchema>;
 
+const STANDARD_CLASS_NAMES: Record<string, string[]> = {
+  nha_tre: ['Shizuka 1', 'Shizuka 2', 'Shizuka 3'],
+  mam: ['Nobita 1', 'Nobita 2', 'Nobita 3'],
+  choi: ['Dorami 1', 'Dorami 2', 'Dorami 3'],
+  la: ['Doraemon 1', 'Doraemon 2', 'Doraemon 3'],
+};
+
 interface ClassFormProps {
   open: boolean;
   onClose: () => void;
@@ -47,6 +54,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
   const [loading, setLoading] = useState(false);
+  const [nameMode, setNameMode] = useState<'select' | 'custom'>('select');
 
   // Map initial values
   const defaultValues: ClassFormValues = {
@@ -74,6 +82,28 @@ export const ClassForm: React.FC<ClassFormProps> = ({
 
   const selectedTeacherIds = watch('teacher_ids') || [];
   const homeroomTeacherId = watch('homeroom_teacher_id') || '';
+  const selectedGrade = watch('grade_level') || 'mam';
+
+  // Check if name is custom on mount or when classData changes
+  useEffect(() => {
+    if (classData) {
+      const grade = classData.grade_level || 'mam';
+      const standards = STANDARD_CLASS_NAMES[grade] || [];
+      if (standards.includes(classData.name)) {
+        setNameMode('select');
+      } else {
+        setNameMode('custom');
+      }
+    }
+  }, [classData]);
+
+  // Automatically update the name to standard default when grade changes in select mode
+  useEffect(() => {
+    if (nameMode === 'select' && !classData) {
+      const standards = STANDARD_CLASS_NAMES[selectedGrade] || [];
+      setValue('name', standards[0] || '');
+    }
+  }, [selectedGrade, nameMode, classData, setValue]);
 
   const handleTeacherToggle = (teacherId: string) => {
     const current = [...selectedTeacherIds];
@@ -186,13 +216,55 @@ export const ClassForm: React.FC<ClassFormProps> = ({
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-          <Input
-            label="Tên lớp học"
-            placeholder="Ví dụ: Doraemon 1, Mầm non A..."
-            leftIcon={<Home />}
-            error={errors.name?.message}
-            {...register('name')}
-          />
+          {nameMode === 'select' ? (
+            <div className="flex flex-col gap-1.5 w-full">
+              <label className="text-[13px] font-semibold text-on-surface tracking-[0.01em]">
+                Tên lớp học
+              </label>
+              <select
+                value={watch('name')}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setNameMode('custom');
+                    setValue('name', '');
+                  } else {
+                    setValue('name', e.target.value);
+                  }
+                }}
+                className="w-full rounded-xl border border-outline-variant hover:border-outline bg-surface-container-lowest font-inter text-sm h-10 px-3 text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+              >
+                <option value="" disabled>-- Chọn tên lớp học --</option>
+                {(STANDARD_CLASS_NAMES[selectedGrade] || []).map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+                <option value="custom" className="text-primary font-semibold">Tự nhập tên lớp khác...</option>
+              </select>
+              {errors.name?.message && (
+                <span className="text-xs text-error font-medium">{errors.name?.message}</span>
+              )}
+            </div>
+          ) : (
+            <div className="relative w-full">
+              <Input
+                label="Tên lớp học"
+                placeholder="Ví dụ: Doraemon 1, Mầm non A..."
+                leftIcon={<Home />}
+                error={errors.name?.message}
+                {...register('name')}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setNameMode('select');
+                  const standards = STANDARD_CLASS_NAMES[selectedGrade] || [];
+                  setValue('name', standards[0] || '');
+                }}
+                className="absolute right-0 top-0 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer select-none"
+              >
+                Chọn từ danh sách
+              </button>
+            </div>
+          )}
 
           <Select
             label="Khối lớp"
