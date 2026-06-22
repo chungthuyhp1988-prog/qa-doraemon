@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DollarSign, Calendar, FileText, User } from 'lucide-react';
-import { Modal, Input, Select, Textarea, Button } from '../ui';
+import { Input, Select, Textarea, Button, useSlidePanel } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -26,16 +26,15 @@ const feeFormSchema = z.object({
 type FeeFormValues = z.infer<typeof feeFormSchema>;
 
 interface FeeFormProps {
-  open: boolean;
-  onClose: () => void;
   fee?: any; // If editing
+  onSuccess?: () => void;
 }
 
 export const FeeForm: React.FC<FeeFormProps> = ({
-  open,
-  onClose,
   fee,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id) || null;
 
@@ -136,7 +135,8 @@ export const FeeForm: React.FC<FeeFormProps> = ({
       }
 
       queryClient.invalidateQueries({ queryKey: ['tuition-fees-list'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu phiếu thu', err.message || 'Lỗi hệ thống');
@@ -146,14 +146,9 @@ export const FeeForm: React.FC<FeeFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={fee ? 'Chỉnh sửa phiếu thu học phí' : 'Tạo phiếu thu học phí mới'}
-      size="md"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4">
         
         {/* Student Select */}
         <Select
@@ -277,7 +272,7 @@ export const FeeForm: React.FC<FeeFormProps> = ({
           <Button
             type="button"
             variant="outline"
-            onClick={onClose}
+            onClick={() => closePanel()}
             disabled={loading}
             className="rounded-xl cursor-pointer"
           >
@@ -292,7 +287,8 @@ export const FeeForm: React.FC<FeeFormProps> = ({
             {fee ? 'Lưu thay đổi' : 'Tạo phiếu thu'}
           </Button>
         </div>
-      </form>
-    </Modal>
-  );
+      </div>
+    </form>
+  </div>
+);
 };

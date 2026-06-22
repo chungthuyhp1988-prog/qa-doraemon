@@ -20,3 +20,8 @@ export { Skeleton, type SkeletonProps } from "./Skeleton";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { FileUpload, type FileUploadProps } from "./FileUpload";
 export { FormField, type FormFieldProps } from "./FormField";
+
+// SlidePanel exports
+export { SlidePanelContainer } from "./SlidePanel";
+export { useSlidePanel, useSlidePanelSafe } from "../../context/SlidePanelContext";
+

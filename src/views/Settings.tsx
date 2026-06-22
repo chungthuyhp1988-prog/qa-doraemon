@@ -15,15 +15,17 @@ import {
   Phone, 
   User, 
   MapPin, 
-  Clock 
+  Clock,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { supabase } from "../lib/supabase";
+import { supabase, uploadFile } from "../lib/supabase";
 import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
 import { Input, Button, Tabs, Modal } from "../components/ui";
+import { Avatar } from "../components/ui/Avatar";
 
 // Validation Schemas
 const schoolSchema = z.object({
@@ -52,13 +54,31 @@ type SchoolValues = z.infer<typeof schoolSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 type YearValues = z.infer<typeof yearSchema>;
 
+const zaloSchema = z.object({
+  zalo_oa_id: z.string().min(1, 'Zalo OA ID là bắt buộc'),
+  zalo_access_token: z.string().min(1, 'Access Token là bắt buộc'),
+  zalo_refresh_token: z.string().optional(),
+  zalo_template_fee: z.string().optional(),
+  zalo_template_attendance: z.string().optional(),
+});
+
+type ZaloValues = z.infer<typeof zaloSchema>;
+
+const profileSchema = z.object({
+  full_name: z.string().min(1, 'Họ tên là bắt buộc'),
+  phone: z.string().optional().nullable(),
+  job_title: z.string().optional().nullable(),
+});
+
+type ProfileValues = z.infer<typeof profileSchema>;
+
 export function Settings() {
   const queryClient = useQueryClient();
-  const user = useAuthStore((state) => state.user);
+  const { user, setUser } = useAuthStore();
   const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
   const setSelectedAcademicYearId = useAppStore((state) => state.setSelectedAcademicYearId);
 
-  const [activeTab, setActiveTab] = useState<'school' | 'years' | 'security'>('school');
+  const [activeTab, setActiveTab] = useState<'school' | 'years' | 'security' | 'zalo' | 'profile'>('school');
   const [loading, setLoading] = useState(false);
   const [isYearModalOpen, setIsYearModalOpen] = useState(false);
   const [yearLoading, setYearLoading] = useState(false);
@@ -113,6 +133,36 @@ export function Settings() {
     reset: resetYear
   } = useForm<YearValues>({
     resolver: zodResolver(yearSchema) as any,
+  });
+
+  const {
+    register: registerZalo,
+    handleSubmit: handleSubmitZalo,
+    formState: { errors: zaloErrors },
+    reset: resetZalo
+  } = useForm<ZaloValues>({
+    resolver: zodResolver(zaloSchema) as any,
+    values: schoolData ? {
+      zalo_oa_id: schoolData.zalo_oa_id || '',
+      zalo_access_token: schoolData.zalo_access_token || '',
+      zalo_refresh_token: schoolData.zalo_refresh_token || '',
+      zalo_template_fee: schoolData.zalo_template_fee || '',
+      zalo_template_attendance: schoolData.zalo_template_attendance || '',
+    } : undefined
+  });
+
+  const {
+    register: registerProfile,
+    handleSubmit: handleSubmitProfile,
+    formState: { errors: profileErrors },
+    reset: resetProfile
+  } = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema) as any,
+    values: user ? {
+      full_name: user.full_name || '',
+      phone: user.phone || '',
+      job_title: user.job_title || '',
+    } : undefined
   });
 
   // Submit handlers
@@ -178,6 +228,80 @@ export function Settings() {
     }
   };
 
+  const onSaveZalo = async (values: ZaloValues) => {
+    if (!schoolData?.id) return;
+    setLoading(true);
+    try {
+      const res = await api.update('schools', schoolData.id, {
+        ...values,
+        updated_at: new Date().toISOString()
+      });
+      if (res.error) throw new Error(res.error);
+      
+      toast.success('Cập nhật cấu hình Zalo OA thành công!');
+      queryClient.invalidateQueries({ queryKey: ['school-details'] });
+    } catch (err: any) {
+      toast.error('Lỗi khi lưu cấu hình', err.message || 'Lỗi hệ thống');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSaveProfile = async (values: ProfileValues) => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const res = await api.update('users', user.id, {
+        ...values,
+        updated_at: new Date().toISOString()
+      });
+      if (res.error) throw new Error(res.error);
+      
+      setUser({
+        ...user,
+        ...values
+      });
+      
+      toast.success('Cập nhật hồ sơ cá nhân thành công!');
+    } catch (err: any) {
+      toast.error('Lỗi cập nhật hồ sơ', err.message || 'Lỗi hệ thống');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    
+    setLoading(true);
+    try {
+      toast.info('Đang tải ảnh lên...');
+      
+      const fileExt = file.name.split('.').pop();
+      const path = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+      
+      const publicUrl = await uploadFile('avatars', path, file);
+      
+      const res = await api.update('users', user.id, {
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString()
+      });
+      if (res.error) throw new Error(res.error);
+      
+      setUser({
+        ...user,
+        avatar_url: publicUrl
+      });
+      
+      toast.success('Cập nhật ảnh đại diện thành công!');
+    } catch (err: any) {
+      toast.error('Lỗi tải ảnh', err.message || 'Lỗi hệ thống');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSetCurrentYear = async (year: any) => {
     try {
       toast.info('Đang chuyển đổi năm học...');
@@ -233,6 +357,19 @@ export function Settings() {
             <Building className="w-4 h-4" />
             Thông tin trường học
           </button>
+
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={cn(
+              "flex items-center gap-2.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap lg:w-full",
+              activeTab === 'profile'
+                ? "bg-primary text-on-primary shadow-sm"
+                : "text-on-surface-variant hover:bg-surface-container"
+            )}
+          >
+            <User className="w-4 h-4" />
+            Hồ sơ cá nhân
+          </button>
           
           <button
             onClick={() => setActiveTab('years')}
@@ -245,6 +382,19 @@ export function Settings() {
           >
             <Calendar className="w-4 h-4" />
             Cấu hình năm học
+          </button>
+
+          <button
+            onClick={() => setActiveTab('zalo')}
+            className={cn(
+              "flex items-center gap-2.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap lg:w-full",
+              activeTab === 'zalo'
+                ? "bg-primary text-on-primary shadow-sm"
+                : "text-on-surface-variant hover:bg-surface-container"
+            )}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Cấu hình Zalo OA
           </button>
 
           <button
@@ -340,6 +490,85 @@ export function Settings() {
                   </div>
                 </form>
               )}
+            </div>
+          )}
+
+          {/* TAB 5: Profile */}
+          {activeTab === 'profile' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  Hồ sơ cá nhân
+                </h2>
+                <p className="text-xs text-on-surface-variant">Cập nhật thông tin cá nhân và ảnh đại diện tài khoản của bạn.</p>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-8 items-start">
+                <div className="flex flex-col items-center gap-4 shrink-0 w-full md:w-auto">
+                  <Avatar
+                    src={user?.avatar_url || undefined}
+                    name={user?.full_name || "U"}
+                    size="lg"
+                    className="w-24 h-24 text-2xl ring-4 ring-primary/20"
+                  />
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      disabled={loading}
+                      className="hidden"
+                      id="avatar-upload-input"
+                    />
+                    <label
+                      htmlFor="avatar-upload-input"
+                      className="px-4 py-2 border border-outline-variant/60 hover:bg-surface-container rounded-xl text-xs font-bold text-on-surface transition-all cursor-pointer block text-center"
+                    >
+                      Thay ảnh đại diện
+                    </label>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSubmitProfile(onSaveProfile)} className="flex-1 w-full space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Họ và tên"
+                      placeholder="Nhập họ tên của bạn..."
+                      error={profileErrors.full_name?.message}
+                      {...registerProfile('full_name')}
+                    />
+
+                    <Input
+                      label="Số điện thoại"
+                      placeholder="Nhập số điện thoại..."
+                      error={profileErrors.phone?.message}
+                      {...registerProfile('phone')}
+                    />
+
+                    <div className="sm:col-span-2">
+                      <Input
+                        label="Chức danh / Vị trí công việc"
+                        placeholder="Ví dụ: Giáo viên chủ nhiệm lớp Mầm 1"
+                        error={profileErrors.job_title?.message}
+                        {...registerProfile('job_title')}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-outline-variant/20">
+                    <Button
+                      type="submit"
+                      loading={loading}
+                      disabled={loading}
+                      className="rounded-xl flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      Lưu thông tin cá nhân
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
@@ -477,6 +706,80 @@ export function Settings() {
                   </Button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* TAB 4: Zalo OA */}
+          {activeTab === 'zalo' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Cấu hình Zalo OA & ZNS
+                </h2>
+                <p className="text-xs text-on-surface-variant">Cấu hình kết nối Zalo Official Account để tự động gửi thông báo học phí, điểm danh đến phụ huynh học sinh.</p>
+              </div>
+
+              {isLoadingSchool ? (
+                <div className="space-y-4 animate-pulse">
+                  <div className="h-10 bg-surface-container-low rounded-xl" />
+                  <div className="h-10 bg-surface-container-low rounded-xl" />
+                  <div className="h-10 bg-surface-container-low rounded-xl" />
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitZalo(onSaveZalo)} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Zalo OA ID"
+                      placeholder="Nhập ID Zalo OA của nhà trường..."
+                      error={zaloErrors.zalo_oa_id?.message}
+                      {...registerZalo('zalo_oa_id')}
+                    />
+
+                    <Input
+                      label="Access Token"
+                      placeholder="Zalo API Access Token..."
+                      error={zaloErrors.zalo_access_token?.message}
+                      {...registerZalo('zalo_access_token')}
+                    />
+
+                    <Input
+                      label="Refresh Token"
+                      placeholder="Zalo API Refresh Token..."
+                      error={zaloErrors.zalo_refresh_token?.message}
+                      {...registerZalo('zalo_refresh_token')}
+                    />
+
+                    <Input
+                      label="Template ID Nhắc học phí (ZNS)"
+                      placeholder="Ví dụ: 123456"
+                      error={zaloErrors.zalo_template_fee?.message}
+                      {...registerZalo('zalo_template_fee')}
+                    />
+
+                    <div className="sm:col-span-2">
+                      <Input
+                        label="Template ID Điểm danh hàng ngày (ZNS)"
+                        placeholder="Ví dụ: 789012"
+                        error={zaloErrors.zalo_template_attendance?.message}
+                        {...registerZalo('zalo_template_attendance')}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-outline-variant/20">
+                    <Button
+                      type="submit"
+                      loading={loading}
+                      disabled={loading}
+                      className="rounded-xl flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      Lưu cấu hình Zalo OA
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
         </div>

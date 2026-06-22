@@ -4,11 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Star, ShieldAlert, Heart, Calendar, Award, FileText, CheckCircle } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
-  Button 
+  Button,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -44,20 +44,19 @@ const evaluationFormSchema = z.object({
 type EvaluationFormValues = z.infer<typeof evaluationFormSchema>;
 
 interface EvaluationFormProps {
-  open: boolean;
-  onClose: () => void;
   evaluation?: any; // If editing
   studentsList: any[];
   preselectedStudentId?: string;
+  onSuccess?: () => void;
 }
 
 export const EvaluationForm: React.FC<EvaluationFormProps> = ({
-  open,
-  onClose,
   evaluation,
   studentsList,
   preselectedStudentId,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
@@ -150,7 +149,8 @@ export const EvaluationForm: React.FC<EvaluationFormProps> = ({
       // Invalidate queries to refresh list
       queryClient.invalidateQueries({ queryKey: ['student-evaluations'] });
       queryClient.invalidateQueries({ queryKey: ['evaluations-student-history'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu đánh giá', err.message || 'Lỗi hệ thống');
@@ -205,14 +205,9 @@ export const EvaluationForm: React.FC<EvaluationFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={evaluation ? 'Chỉnh sửa phiếu đánh giá' : 'Tạo phiếu đánh giá phát triển trẻ'}
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
         
         {/* Student & Date Details */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -289,27 +284,28 @@ export const EvaluationForm: React.FC<EvaluationFormProps> = ({
           {...register('recommendation')}
         />
 
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            {evaluation ? 'Lưu thay đổi' : 'Tạo phiếu'}
-          </Button>
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePanel()}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              {evaluation ? 'Lưu thay đổi' : 'Tạo phiếu'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 };

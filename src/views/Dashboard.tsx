@@ -83,6 +83,69 @@ export function Dashboard() {
   });
   const weeklyAttendance = weeklyAttendanceRes?.data?.data || [];
 
+  // Fetch active students to check for birthdays today
+  const { data: birthdayStudents = [] } = useQuery({
+    queryKey: ['dashboard-birthdays'],
+    queryFn: async () => {
+      const res = await api.getAll<any>(
+        'students',
+        { page: 1, pageSize: 1000 },
+        { filters: { status: 'active' } },
+        'id, full_name, date_of_birth, classes(name)'
+      );
+      
+      const todayMD = format(new Date(), 'MM-dd');
+      
+      return (res.data?.data || []).filter((s: any) => {
+        if (!s.date_of_birth) return false;
+        try {
+          return s.date_of_birth.substring(5, 10) === todayMD;
+        } catch {
+          return false;
+        }
+      });
+    }
+  });
+
+  const calculateAge = (dobString: string) => {
+    try {
+      const birthDate = new Date(dobString);
+      const today = new Date();
+      return today.getFullYear() - birthDate.getFullYear();
+    } catch {
+      return 3;
+    }
+  };
+
+  // Fetch medical alerts from active students
+  const { data: medicalAlerts = [] } = useQuery({
+    queryKey: ['dashboard-medical-alerts'],
+    queryFn: async () => {
+      const res = await api.getAll<any>(
+        'students',
+        { page: 1, pageSize: 1000 },
+        { filters: { status: 'active' } },
+        'id, full_name, medical_notes, classes(name)'
+      );
+      return (res.data?.data || []).filter((s: any) => !!s.medical_notes);
+    }
+  });
+
+  // Fetch unmarked classes for today
+  const { data: unmarkedClasses = [] } = useQuery({
+    queryKey: ['dashboard-attendance-alerts', todayStr],
+    queryFn: async () => {
+      const classesRes = await api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters: { is_active: true } });
+      const classes = classesRes.data?.data || [];
+      
+      const attRes = await api.getAll<any>('attendance', { page: 1, pageSize: 5000 }, { filters: { date: todayStr } });
+      const attRecords = attRes.data?.data || [];
+      
+      const markedClassIds = new Set(attRecords.map((r: any) => r.class_id));
+      return classes.filter((c: any) => !markedClassIds.has(c.id));
+    }
+  });
+
   // Compute daily attendance rate
   const weekdays = [
     { label: "T2", date: startOfCurrentWeek },
@@ -324,26 +387,54 @@ export function Dashboard() {
           <div className="bg-surface-container-lowest border border-outline-variant/35 rounded-[32px] p-6 shadow-sm flex-1 flex flex-col">
             <h3 className="text-[20px] font-bold italic font-playfair text-on-surface mb-6">Cần chú ý hôm nay</h3>
             
-            <div className="space-y-4">
-              <div className="bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl p-4 border-l-4 border-amber-500 border">
-                <div className="flex items-start gap-4">
-                  <span className="text-amber-600 mt-0.5"><Cake className="w-5 h-5 fill-current" /></span>
-                  <div>
-                    <p className="text-[13.5px] font-bold text-on-surface leading-tight font-inter">Sinh nhật bé Nguyễn Bảo Ngọc</p>
-                    <p className="text-[11.5px] text-on-surface-variant mt-1 font-semibold">Lớp Nobita 1 (Tròn 3 tuổi)</p>
+            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+              {birthdayStudents.map((student: any) => (
+                <div key={student.id || student.full_name} className="bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl p-4 border-l-4 border-amber-500 border animate-in fade-in">
+                  <div className="flex items-start gap-4">
+                    <span className="text-amber-600 mt-0.5"><Cake className="w-5 h-5 fill-current" /></span>
+                    <div>
+                      <p className="text-[13.5px] font-bold text-on-surface leading-tight font-inter">Sinh nhật bé {student.full_name}</p>
+                      <p className="text-[11.5px] text-on-surface-variant mt-1 font-semibold">
+                        Lớp {student.classes?.name || 'Chưa xếp lớp'} (Tròn {calculateAge(student.date_of_birth)} tuổi)
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
 
-              <div className="bg-blue-50/50 dark:bg-blue-950/10 rounded-2xl p-4 border-l-4 border-primary border">
-                <div className="flex items-start gap-4">
-                  <span className="text-primary mt-0.5"><Syringe className="w-5 h-5" /></span>
-                  <div>
-                    <p className="text-[13.5px] font-bold text-on-surface leading-tight font-inter">Nhắc uống thuốc trưa</p>
-                    <p className="text-[11.5px] text-on-surface-variant mt-1 font-semibold">Bé Trần Minh Khang (Doraemon 1) - Siro Ho (5ml lúc 11:30)</p>
+              {medicalAlerts.map((student: any) => (
+                <div key={student.id} className="bg-blue-50/50 dark:bg-blue-950/10 rounded-2xl p-4 border-l-4 border-primary border animate-in fade-in">
+                  <div className="flex items-start gap-4">
+                    <span className="text-primary mt-0.5"><Syringe className="w-5 h-5" /></span>
+                    <div>
+                      <p className="text-[13.5px] font-bold text-on-surface leading-tight font-inter">Lưu ý y tế: {student.full_name}</p>
+                      <p className="text-[11.5px] text-on-surface-variant mt-1 font-semibold">
+                        Lớp {student.classes?.name || 'Chưa xếp lớp'} - {student.medical_notes}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
+
+              {unmarkedClasses.map((c: any) => (
+                <div key={c.id} className="bg-rose-50/50 dark:bg-rose-950/10 rounded-2xl p-4 border-l-4 border-rose-500 border animate-in fade-in">
+                  <div className="flex items-start gap-4">
+                    <span className="text-rose-600 mt-0.5"><Activity className="w-5 h-5" /></span>
+                    <div>
+                      <p className="text-[13.5px] font-bold text-on-surface leading-tight font-inter">Lớp chưa điểm danh</p>
+                      <p className="text-[11.5px] text-on-surface-variant mt-1 font-semibold">
+                        Lớp {c.name} chưa hoàn tất điểm danh hôm nay.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {birthdayStudents.length === 0 && medicalAlerts.length === 0 && unmarkedClasses.length === 0 && (
+                <div className="text-center py-12 text-on-surface-variant/70 italic text-xs font-semibold">
+                  ✨ Hôm nay không có sinh nhật, cảnh báo y tế hoặc lớp học chưa điểm danh nào.
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
@@ -11,11 +11,18 @@ import {
   User,
   X,
   Sun,
-  Moon
+  Moon,
+  Calendar
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Avatar } from "./ui/Avatar";
 import { useAppStore } from "../stores/appStore";
+import { useAuthStore } from "../stores/authStore";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../lib/api";
+import { subscribeToTable } from "../lib/supabase";
+import { formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale";
 
 /* ── Types ─────────────────────────────────────────── */
 
@@ -43,31 +50,15 @@ const routeTitles: Record<string, string> = {
   "/settings": "Cài Đặt",
 };
 
-/* ── Mock notifications ────────────────────────────── */
+/* ── Helpers ───────────────────────────────────────── */
 
-const mockNotifications = [
-  {
-    id: "1",
-    title: "Phụ huynh gửi đơn xin nghỉ",
-    message: "Bé Nguyễn Văn An - Lớp Chồi 1 xin nghỉ ngày mai",
-    time: "5 phút trước",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Học phí tháng 6 đã đến hạn",
-    message: "15 phụ huynh chưa đóng học phí tháng 6/2026",
-    time: "1 giờ trước",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Cập nhật thực đơn tuần mới",
-    message: "Thực đơn tuần 23 đã được cập nhật",
-    time: "3 giờ trước",
-    read: true,
-  },
-];
+const timeAgo = (dateStr: string) => {
+  try {
+    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: vi });
+  } catch {
+    return "Vừa xong";
+  }
+};
 
 /* ── useDebounce hook ──────────────────────────────── */
 
@@ -98,6 +89,70 @@ export function Topbar({
 
   const theme = useAppStore((state) => state.theme);
   const setTheme = useAppStore((state) => state.setTheme);
+  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
+  const setSelectedAcademicYearId = useAppStore((state) => state.setSelectedAcademicYearId);
+
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useAuthStore();
+
+  // Fetch topbar notifications
+  const { data: notificationsResponse } = useQuery({
+    queryKey: ['topbar-notifications', currentUser?.school_id],
+    queryFn: () => {
+      if (!currentUser?.school_id) return { data: { data: [], count: 0 }, error: null, count: 0 };
+      return api.getAll<any>(
+        'notifications',
+        { page: 1, pageSize: 10, sortBy: 'sent_at', sortOrder: 'desc' },
+        { filters: { school_id: currentUser.school_id } }
+      );
+    },
+    enabled: !!currentUser?.school_id
+  });
+  
+  const notificationsList = notificationsResponse?.data?.data || [];
+  
+  // Realtime subscription
+  useEffect(() => {
+    if (!currentUser?.school_id) return;
+
+    const channel = subscribeToTable('notifications', () => {
+      queryClient.invalidateQueries({ queryKey: ['topbar-notifications', currentUser.school_id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [currentUser?.school_id, queryClient]);
+
+  // Mark notification as read
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await api.update('notifications', id, { is_read: true, updated_at: new Date().toISOString() });
+      queryClient.invalidateQueries({ queryKey: ['topbar-notifications', currentUser?.school_id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Fetch academic years
+  const { data: yearsResponse } = useQuery({
+    queryKey: ['academic-years-topbar'],
+    queryFn: () => api.getAll<any>('academic_years', { page: 1, pageSize: 100, sortBy: 'name', sortOrder: 'desc' }),
+  });
+  const yearsList = yearsResponse?.data?.data || [];
+
+  // Auto select active year if not selected yet
+  useEffect(() => {
+    if (!selectedAcademicYearId && yearsList.length > 0) {
+      const currentYear = yearsList.find((y: any) => y.is_current) || yearsList[0];
+      if (currentYear) {
+        setSelectedAcademicYearId(currentYear.id);
+      }
+    }
+  }, [yearsList, selectedAcademicYearId, setSelectedAcademicYearId]);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -129,7 +184,7 @@ export function Topbar({
     setShowUserMenu(false);
   }, [location.pathname]);
 
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
+  const unreadCount = notificationsList.filter((n: any) => !n.is_read).length;
 
   return (
     <header
@@ -193,6 +248,25 @@ export function Topbar({
 
       {/* ── Right section ───────────────── */}
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
+        {/* Academic Year Selector */}
+        <div className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/60 rounded-full px-3 py-1.5 h-10 select-none">
+          <Calendar className="w-4 h-4 text-primary shrink-0" />
+          <select
+            value={selectedAcademicYearId || ""}
+            onChange={(e) => setSelectedAcademicYearId(e.target.value || null)}
+            className="bg-transparent border-none text-xs font-bold text-on-surface focus:outline-none pr-1 max-w-[140px] truncate cursor-pointer"
+          >
+            {selectedAcademicYearId === null && (
+              <option value="" disabled className="text-on-surface-variant bg-surface-container-low font-medium">Chọn năm học</option>
+            )}
+            {yearsList.map((y: any) => (
+              <option key={y.id} value={y.id} className="text-on-surface bg-surface-container-lowest font-semibold">
+                Năm học {y.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Search */}
         <div className="relative hidden md:block">
           <div
@@ -284,36 +358,46 @@ export function Topbar({
                 </div>
 
                 <div className="max-h-80 overflow-y-auto">
-                  {mockNotifications.map((notif) => (
-                    <button
-                      key={notif.id}
-                      className={cn(
-                        "w-full text-left px-4 py-3 hover:bg-surface-container/60 transition-colors border-b border-outline-variant/20 last:border-0",
-                        !notif.read && "bg-primary-container/20"
-                      )}
-                    >
-                      <div className="flex gap-3">
-                        {!notif.read && (
-                          <span className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                  {notificationsList.length === 0 ? (
+                    <div className="text-center py-8 text-on-surface-variant/70 italic text-xs font-semibold">
+                      📭 Hộp thư trống
+                    </div>
+                  ) : (
+                    notificationsList.map((notif: any) => (
+                      <button
+                        key={notif.id}
+                        onClick={() => !notif.is_read && handleMarkAsRead(notif.id)}
+                        className={cn(
+                          "w-full text-left px-4 py-3 hover:bg-surface-container/60 transition-colors border-b border-outline-variant/20 last:border-0 cursor-pointer",
+                          !notif.is_read && "bg-primary-container/20"
                         )}
-                        <div className={cn("min-w-0", notif.read && "ml-5")}>
-                          <p className="text-[13px] font-semibold text-on-surface truncate">
-                            {notif.title}
-                          </p>
-                          <p className="text-[12px] text-on-surface-variant mt-0.5 line-clamp-2">
-                            {notif.message}
-                          </p>
-                          <p className="text-[11px] text-on-surface-variant/70 mt-1">
-                            {notif.time}
-                          </p>
+                      >
+                        <div className="flex gap-3">
+                          {!notif.is_read && (
+                            <span className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                          )}
+                          <div className={cn("min-w-0", notif.is_read && "ml-5")}>
+                            <p className="text-[13px] font-semibold text-on-surface truncate">
+                              {notif.title}
+                            </p>
+                            <p className="text-[12px] text-on-surface-variant mt-0.5 line-clamp-2">
+                              {notif.content}
+                            </p>
+                            <p className="text-[11px] text-on-surface-variant/70 mt-1">
+                              {timeAgo(notif.sent_at || notif.created_at)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))
+                  )}
                 </div>
 
                 <div className="px-4 py-2.5 border-t border-outline-variant/40">
-                  <button className="w-full text-center text-[13px] font-semibold text-primary hover:text-primary/80 transition-colors py-1">
+                  <button
+                    onClick={() => navigate("/notifications")}
+                    className="w-full text-center text-[13px] font-semibold text-primary hover:text-primary/80 transition-colors py-1 cursor-pointer"
+                  >
                     Xem tất cả thông báo
                   </button>
                 </div>

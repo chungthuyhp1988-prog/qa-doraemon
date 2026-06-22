@@ -5,36 +5,47 @@ import {
   Plus, 
   TrendingUp, 
   AlertCircle, 
-  Filter, 
   MessageCircle, 
-  FileText, 
   Check, 
   ChevronLeft, 
   ChevronRight,
-  Edit2
+  Edit2,
+  Eye,
+  DollarSign
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { DatePicker, Table, type TableColumn, Button, ConfirmDialog } from "../components/ui";
+import { DatePicker, Table, type TableColumn, Button, useSlidePanel } from "../components/ui";
 import { FeeForm } from "../components/forms/FeeForm";
+import { FeeDetailPanel } from "../components/details/FeeDetailPanel";
 import { toast } from "../stores/toastStore";
 import { zalo } from "../lib/zalo";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
+import { useAppStore } from "../stores/appStore";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
+} from 'recharts';
 
 export function Finance() {
   const queryClient = useQueryClient();
+  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
+  const { openPanel } = useSlidePanel();
 
   // Filters state
   const [selectedMonthYear, setSelectedMonthYear] = useState<string>(format(new Date(), 'yyyy-MM'));
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [page, setPage] = useState(1);
-  const pageSize = 15;
+  const pageSize = 12;
 
-  // Dialog/Form states
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedFee, setSelectedFee] = useState<any | null>(null);
+  // Sending status
   const [isZaloSendingId, setIsZaloSendingId] = useState<string | null>(null);
 
   const [yearStr, monthStr] = selectedMonthYear.split('-');
@@ -54,7 +65,7 @@ export function Finance() {
   const classesList = classesResponse?.data?.data || [];
 
   // 2. Fetch tuition fees records
-  const { data: feesResponse, isLoading, isError } = useQuery({
+  const { data: feesResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['tuition-fees-list', selectedMonthYear, selectedClassId, selectedStatus, page],
     queryFn: async () => {
       const filters: Record<string, any> = {
@@ -102,12 +113,11 @@ export function Finance() {
   });
 
   const totalCount = feesResponse?.data?.count || 0;
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   // 3. Mark Paid mutation
   const markPaidMutation = useMutation({
     mutationFn: async (feeId: string) => {
-      // Find fee details
       const feeItem = rawFeesData.find((f: any) => f.id === feeId);
       if (!feeItem) throw new Error('Không tìm thấy phiếu thu');
 
@@ -132,7 +142,6 @@ export function Finance() {
   });
 
   // Calculate aggregates (Total expected, Collected, Remaining) from all fees in the current filter month
-  // To get true aggregates of the month (regardless of pagination), let's fetch all records of this month/class
   const { data: monthAggregates } = useQuery({
     queryKey: ['month-aggregates-finance', selectedMonthYear, selectedClassId],
     queryFn: async () => {
@@ -182,6 +191,86 @@ export function Finance() {
       }
     });
   }
+
+  // Fetch tuition fees for all months in the selected academic year to compute the chart
+  const { data: chartData = [] } = useQuery({
+    queryKey: ['finance-chart-data', selectedAcademicYearId],
+    queryFn: async () => {
+      if (!selectedAcademicYearId) return [];
+      
+      const res = await api.getAll<any>(
+        'tuition_fees',
+        { page: 1, pageSize: 5000 },
+        { filters: { academic_year_id: selectedAcademicYearId } },
+        'month, total_amount, paid_amount'
+      );
+      const fees = res.data?.data || [];
+      
+      const monthlyTotals: Record<number, { month: string; expected: number; paid: number }> = {};
+      
+      fees.forEach((fee: any) => {
+        const m = fee.month;
+        if (!monthlyTotals[m]) {
+          monthlyTotals[m] = {
+            month: `Tháng ${m}`,
+            expected: 0,
+            paid: 0
+          };
+        }
+        monthlyTotals[m].expected += Number(fee.total_amount || 0);
+        monthlyTotals[m].paid += Number(fee.paid_amount || 0);
+      });
+      
+      return Object.values(monthlyTotals).sort((a: any, b: any) => {
+        const numA = parseInt(a.month.replace('Tháng ', ''));
+        const numB = parseInt(b.month.replace('Tháng ', ''));
+        return numA - numB;
+      });
+    },
+    enabled: !!selectedAcademicYearId
+  });
+
+  const handleExportCSV = () => {
+    if (feesData.length === 0) {
+      toast.warning('Không có dữ liệu', 'Không có dữ liệu phiếu thu để xuất file.');
+      return;
+    }
+
+    try {
+      const headers = ['Mã học sinh', 'Họ tên học sinh', 'Lớp học', 'Khoản thu cơ bản (VND)', 'Tiền ăn (VND)', 'Khoản thu khác (VND)', 'Miễn giảm (VND)', 'Tổng cộng (VND)', 'Đã đóng (VND)', 'Trạng thái', 'Hạn đóng'];
+      
+      const rows = feesData.map((fee: any) => [
+        fee.students?.student_code || '',
+        fee.students?.full_name || '',
+        fee.students?.classes?.name || 'Chưa xếp lớp',
+        fee.base_amount || 0,
+        fee.meal_amount || 0,
+        fee.extra_amount || 0,
+        fee.discount || 0,
+        fee.total_amount || 0,
+        fee.paid_amount || 0,
+        fee.status === 'paid' ? 'Đã đóng' : fee.status === 'partial' ? 'Đóng một phần' : fee.status === 'overdue' ? 'Quá hạn' : 'Chờ thanh toán',
+        fee.due_date || ''
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `HocPhi_Thang_${currentMonth}_${currentYear}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Xuất file thành công!', 'File danh sách học phí đã được tải về máy của bạn.');
+    } catch (err: any) {
+      toast.error('Lỗi khi xuất file', err.message || 'Lỗi hệ thống');
+    }
+  };
 
   // Handle Zalo Reminder action
   const handleZaloReminder = async (feeItem: any) => {
@@ -239,6 +328,48 @@ export function Finance() {
           </span>
         );
     }
+  };
+
+  // SlidePanel triggers
+  const handleOpenDetail = (feeId: string) => {
+    openPanel({
+      title: 'Chi tiết phiếu thu học phí',
+      icon: <DollarSign size={14} />,
+      width: 768,
+      component: (
+        <FeeDetailPanel 
+          feeId={feeId} 
+          onDeleteSuccess={() => refetch()}
+        />
+      )
+    });
+  };
+
+  const handleCreateFee = () => {
+    openPanel({
+      title: 'Tạo phiếu thu học phí mới',
+      icon: <Plus size={14} />,
+      width: 768,
+      component: (
+        <FeeForm 
+          onSuccess={() => refetch()}
+        />
+      )
+    });
+  };
+
+  const handleEditFee = (fee: any) => {
+    openPanel({
+      title: 'Chỉnh sửa phiếu thu học phí',
+      icon: <Edit2 size={14} />,
+      width: 768,
+      component: (
+        <FeeForm 
+          fee={fee}
+          onSuccess={() => refetch()}
+        />
+      )
+    });
   };
 
   const tableColumns: TableColumn<any>[] = [
@@ -310,11 +441,19 @@ export function Finance() {
       key: "actions" as any,
       header: "Hành động",
       render: (row: any) => {
-        const remaining = Number(row.total_amount) - Number(row.paid_amount);
         const hasPhone = !!(row.students?.guardians?.find((g: any) => g.is_primary)?.phone || row.students?.guardians?.[0]?.phone);
 
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => handleOpenDetail(row.id)}
+              className="p-1.5 text-primary hover:bg-primary/5 rounded-lg border border-primary/20 hover:border-primary transition-all cursor-pointer flex items-center justify-center"
+              title="Xem chi tiết"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+
             {/* Quick payment update */}
             {row.status !== 'paid' && (
               <button
@@ -348,10 +487,7 @@ export function Finance() {
             {/* Edit details */}
             <button
               type="button"
-              onClick={() => {
-                setSelectedFee(row);
-                setIsFormOpen(true);
-              }}
+              onClick={() => handleEditFee(row)}
               className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg border border-outline-variant/40 hover:border-outline transition-all cursor-pointer flex items-center justify-center"
               title="Sửa thông tin"
             >
@@ -380,16 +516,14 @@ export function Finance() {
           <Button
             type="button"
             variant="outline"
+            onClick={handleExportCSV}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl text-[14px] font-bold border-outline-variant/50 hover:bg-surface-container-low cursor-pointer"
           >
             <Download className="w-4 h-4" /> Xuất Excel
           </Button>
           <Button
             type="button"
-            onClick={() => {
-              setSelectedFee(null);
-              setIsFormOpen(true);
-            }}
+            onClick={handleCreateFee}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm text-[14px] font-bold cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Tạo phiếu thu
@@ -448,6 +582,42 @@ export function Finance() {
         </div>
       </div>
 
+      {/* Revenue Trend Chart Card */}
+      {chartData.length > 0 && (
+        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-[32px] p-6 shadow-sm mb-8 animate-in fade-in duration-300">
+          <h3 className="text-[20px] font-bold italic font-playfair text-on-surface mb-6">Xu hướng doanh thu học phí</h3>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorExpected" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorPaid" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-outline-variant/30" />
+                <XAxis dataKey="month" className="text-[11px] font-bold text-on-surface-variant" />
+                <YAxis
+                  className="text-[11px] font-bold text-on-surface-variant"
+                  tickFormatter={(tick) => `${(tick / 1000000).toFixed(0)}M`}
+                />
+                <Tooltip
+                  formatter={(value: any) => [`${Number(value).toLocaleString('vi-VN')} ₫`]}
+                  contentStyle={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-outline-variant)' }}
+                />
+                <Legend className="text-[12px] font-semibold" />
+                <Area type="monotone" name="Dự kiến thu" dataKey="expected" stroke="#0ea5e9" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpected)" />
+                <Area type="monotone" name="Thực tế đã thu" dataKey="paid" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorPaid)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Main Table section */}
       <div className="bg-surface-container-lowest rounded-[32px] shadow-sm border border-outline-variant/30 overflow-hidden flex flex-col">
         {/* Filters Toolbar */}
@@ -500,6 +670,7 @@ export function Finance() {
             columns={tableColumns}
             data={feesData}
             rowKey={(row) => row.id}
+            onRowClick={(row) => handleOpenDetail(row.id)}
             loading={isLoading}
             emptyTitle="Không có dữ liệu phiếu thu"
             emptyDescription="Không tìm thấy phiếu thu nào khớp với bộ lọc tháng học hoặc trạng thái đã chọn."
@@ -536,16 +707,6 @@ export function Finance() {
           </div>
         )}
       </div>
-
-      {/* FeeForm modal */}
-      <FeeForm
-        open={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false);
-          setSelectedFee(null);
-        }}
-        fee={selectedFee}
-      />
     </div>
   );
 }

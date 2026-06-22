@@ -9,6 +9,7 @@ export interface UserProfile {
   role: 'admin' | 'teacher' | 'staff';
   phone: string | null;
   avatar_url: string | null;
+  job_title: string | null;
   is_active: boolean;
   school_id: string;
 }

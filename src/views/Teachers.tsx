@@ -13,33 +13,66 @@ import {
   LayoutGrid,
   List,
   Edit2,
-  Trash2
+  Trash2,
+  Eye,
+  User
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { Table, type TableColumn, ConfirmDialog } from "../components/ui";
+import { Table, type TableColumn, ConfirmDialog, useSlidePanel } from "../components/ui";
 import { TeacherForm } from "../components/forms/TeacherForm";
+import { TeacherDetailPanel } from "../components/details/TeacherDetailPanel";
 import { toast } from "../stores/toastStore";
+
+// Helper function to compare Vietnamese names alphabetically by first name
+const compareVietnameseNames = (nameA: string, nameB: string) => {
+  const cleanA = (nameA || '').trim();
+  const cleanB = (nameB || '').trim();
+  
+  if (!cleanA && !cleanB) return 0;
+  if (!cleanA) return 1;
+  if (!cleanB) return -1;
+  
+  const partsA = cleanA.split(/\s+/);
+  const partsB = cleanB.split(/\s+/);
+  
+  const firstNameA = partsA[partsA.length - 1] || '';
+  const firstNameB = partsB[partsB.length - 1] || '';
+  
+  const cmp = firstNameA.localeCompare(firstNameB, 'vi', { sensitivity: 'base' });
+  if (cmp !== 0) return cmp;
+  
+  return cleanA.localeCompare(cleanB, 'vi', { sensitivity: 'base' });
+};
+
+const getTeacherTitle = (email: string, role: string) => {
+  const emailLower = (email || '').toLowerCase().trim();
+  if (emailLower === 'nguyenthu20390@gmail.com') return 'Hiệu trưởng';
+  if (emailLower === 'phamthicamhoai09091998@gmail.com') return 'Hiệu Phó';
+  if (emailLower === 'thuylinh.drm@gmail.com') return 'Kế toán';
+  if (role === 'admin') return 'Ban giám hiệu';
+  if (role === 'staff') return 'Nhân viên';
+  return 'Giáo viên';
+};
 
 export function Teachers() {
   const queryClient = useQueryClient();
+  const { openPanel } = useSlidePanel();
   
   // View mode: grid vs table
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
-  // Dialog/Modal states
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  // Delete state for quick delete from list
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
 
   // Search & Filter state
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [page, setPage] = useState(1);
   const pageSize = 100;
 
@@ -65,7 +98,7 @@ export function Teachers() {
   const classesList = classesResponse?.data?.data || [];
 
   // 2. Fetch users list (teachers and staff) based on search and filters
-  const { data: teachersResponse, isLoading, isError } = useQuery({
+  const { data: teachersResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['teachers-list', debouncedSearch, selectedRole, selectedClassId, selectedStatus, page],
     queryFn: async () => {
       const filters: Record<string, any> = {};
@@ -75,14 +108,8 @@ export function Teachers() {
         filters.is_active = selectedStatus === "active";
       }
       
-      // Filter by role
-      if (selectedRole !== "all") {
-        filters.role = selectedRole;
-      }
-      
       // Filter by specific class if selected
       if (selectedClassId !== "all") {
-        // First find the teacher IDs assigned to this class
         const { data: ctData } = await api.getAll(
           'class_teachers', 
           { page: 1, pageSize: 1000 }, 
@@ -93,7 +120,6 @@ export function Teachers() {
         if (teacherIds.length > 0) {
           filters.id = `in.(${teacherIds.join(',')})`;
         } else {
-          // If no teachers are assigned to this class, return empty results immediately
           return { data: { data: [], count: 0 }, error: null, count: 0 };
         }
       }
@@ -112,41 +138,96 @@ export function Teachers() {
   });
 
   const rawTeachersData = teachersResponse?.data?.data || [];
-  
-  // Sắp xếp: Ban giám hiệu (admin) -> Kế toán (staff) -> Giáo viên (teacher, sắp xếp theo lớp rồi đến tên)
-  const teachersData = [...rawTeachersData].sort((a: any, b: any) => {
-    // 1. Sắp xếp theo vai trò: admin -> staff -> teacher
-    const roleOrder: Record<string, number> = { admin: 1, staff: 2, teacher: 3 };
-    const roleA = roleOrder[a.role] || 4;
-    const roleB = roleOrder[b.role] || 4;
-    if (roleA !== roleB) return roleA - roleB;
 
-    // 2. Định hình chức vụ cụ thể trong Ban giám hiệu (Hiệu trưởng -> Hiệu Phó -> BGH khác)
-    if (a.role === 'admin' && b.role === 'admin') {
-      const emailOrder: Record<string, number> = {
-        'nguyenthu20390@gmail.com': 1, // Hiệu trưởng
-        'phamthicamhoai09091998@gmail.com': 2, // Hiệu Phó
-      };
-      const emailA = emailOrder[a.email] || 3;
-      const emailB = emailOrder[b.email] || 3;
-      if (emailA !== emailB) return emailA - emailB;
+  const classifyUser = (user: any) => {
+    const role = user.role || '';
+    const title = (user.job_title || getTeacherTitle(user.email, user.role) || '').toLowerCase().trim();
+    const name = (user.full_name || '').trim();
+    const email = (user.email || '').toLowerCase().trim();
+
+    if (email === 'admin@doraemon.edu.vn' || name.toLowerCase().includes('quản trị viên')) {
+      return 5;
     }
 
-    // 3. Đối với giáo viên, sắp xếp theo tên lớp phụ trách (Doraemon 1 -> Doraemon 2 -> Dorami 1...)
-    if (a.role === 'teacher' && b.role === 'teacher') {
-      const classA = a.class_teachers?.[0]?.classes?.name || 'Z_no_class';
-      const classB = b.class_teachers?.[0]?.classes?.name || 'Z_no_class';
+    const isBGH = 
+      role === 'admin' ||
+      title.includes('hiệu trưởng') ||
+      title.includes('hiệu phó') ||
+      title.includes('p. hiệu trưởng') ||
+      title.includes('p.hiệu trưởng') ||
+      title.includes('chủ tịch') ||
+      title.includes('ban giám hiệu') ||
+      name === 'Hoàng Thị Thùy Linh';
+
+    if (isBGH) return 1;
+
+    const isTeacher = role === 'teacher' || title.includes('giáo viên');
+    if (isTeacher) return 2;
+
+    const isKitchen = title.includes('bếp') || title.includes('cấp dưỡng') || title.includes('nấu ăn');
+    if (isKitchen) return 3;
+
+    return 4;
+  };
+
+  const compareGroup1 = (a: any, b: any) => {
+    const getSubRank = (user: any) => {
+      const title = (user.job_title || getTeacherTitle(user.email, user.role) || '').toLowerCase().trim();
+      const name = (user.full_name || '').trim();
+
+      const isPrincipal = title.includes('hiệu trưởng') && !title.includes('phó') && !title.startsWith('p.');
+      if (isPrincipal) return 1;
       
-      const cmp = classA.localeCompare(classB, 'vi', { numeric: true, sensitivity: 'base' });
-      if (cmp !== 0) return cmp;
+      if (title.includes('phó hiệu trưởng') || title.includes('p. hiệu trưởng') || title.includes('phó hiệu') || title.includes('p.hiệu')) {
+        return 2;
+      }
+      
+      if (name === 'Hoàng Thị Thùy Linh') return 3;
+      
+      return 4;
+    };
+
+    const subRankA = getSubRank(a);
+    const subRankB = getSubRank(b);
+
+    if (subRankA !== subRankB) return subRankA - subRankB;
+
+    if (subRankA === 2) {
+      const dateA = a.date_of_birth ? new Date(a.date_of_birth).getTime() : Infinity;
+      const dateB = b.date_of_birth ? new Date(b.date_of_birth).getTime() : Infinity;
+      if (dateA !== dateB) return dateA - dateB;
     }
 
-    // 4. Cuối cùng sắp xếp theo họ tên bảng chữ cái Tiếng Việt
-    return a.full_name.localeCompare(b.full_name, 'vi');
+    return compareVietnameseNames(a.full_name, b.full_name);
+  };
+
+  // Client-side category filtering
+  const filteredTeachersData = [...rawTeachersData].filter((user: any) => {
+    if (selectedRole === 'all') return true;
+    const group = classifyUser(user);
+    if (selectedRole === 'bgh' && (group === 1 || group === 5)) return true;
+    if (selectedRole === 'teacher' && group === 2) return true;
+    if (selectedRole === 'kitchen' && group === 3) return true;
+    if (selectedRole === 'maintenance' && group === 4) return true;
+    return false;
   });
 
-  const totalCount = teachersResponse?.data?.count || 0;
-  const totalPages = Math.ceil(totalCount / pageSize);
+  // Sort: Group 1 -> Group 2 -> Group 3 -> Group 4 -> Group 5
+  const teachersData = filteredTeachersData.sort((a: any, b: any) => {
+    const groupA = classifyUser(a);
+    const groupB = classifyUser(b);
+
+    if (groupA !== groupB) return groupA - groupB;
+
+    if (groupA === 1) {
+      return compareGroup1(a, b);
+    }
+    
+    return compareVietnameseNames(a.full_name, b.full_name);
+  });
+
+  const totalCount = teachersResponse?.data?.count || filteredTeachersData.length;
+  const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   // Helper to map role to display text & styles
   const getRoleBadge = (row: any) => {
@@ -172,16 +253,6 @@ export function Teachers() {
           </span>
         );
     }
-  };
-
-  const getTeacherTitle = (email: string, role: string) => {
-    const emailLower = email.toLowerCase().trim();
-    if (emailLower === 'nguyenthu20390@gmail.com') return 'Hiệu trưởng';
-    if (emailLower === 'phamthicamhoai09091998@gmail.com') return 'Hiệu Phó';
-    if (emailLower === 'thuylinh.drm@gmail.com') return 'Kế toán';
-    if (role === 'admin') return 'Ban giám hiệu';
-    if (role === 'staff') return 'Nhân viên';
-    return 'Giáo viên';
   };
 
   // Get initials for profile placeholder
@@ -213,7 +284,7 @@ export function Teachers() {
     setSearch("");
     setSelectedRole("all");
     setSelectedClassId("all");
-    setSelectedStatus("all");
+    setSelectedStatus("active");
     setPage(1);
   };
 
@@ -221,7 +292,7 @@ export function Teachers() {
     if (!selectedTeacher) return;
     setIsDeleting(true);
     try {
-      const res = await api.softDelete('users', selectedTeacher.id);
+      const res = await api.remove('users', selectedTeacher.id);
       if (res.error) throw new Error(res.error);
       
       toast.success('Xóa nhân sự thành công!');
@@ -234,6 +305,51 @@ export function Teachers() {
       setIsDeleting(false);
       setSelectedTeacher(null);
     }
+  };
+
+  // SlidePanel handlers
+  const handleOpenDetail = (teacherId: string) => {
+    openPanel({
+      title: 'Thông tin chi tiết nhân sự',
+      icon: <User size={14} />,
+      width: 768,
+      component: (
+        <TeacherDetailPanel 
+          teacherId={teacherId} 
+          classesList={classesList}
+          onDeleteSuccess={() => refetch()}
+        />
+      )
+    });
+  };
+
+  const handleCreateTeacher = () => {
+    openPanel({
+      title: 'Thêm nhân sự mới',
+      icon: <Plus size={14} />,
+      width: 768,
+      component: (
+        <TeacherForm 
+          classesList={classesList}
+          onSuccess={() => refetch()}
+        />
+      )
+    });
+  };
+
+  const handleEditTeacher = (teacher: any) => {
+    openPanel({
+      title: 'Chỉnh sửa nhân sự',
+      icon: <Edit2 size={14} />,
+      width: 768,
+      component: (
+        <TeacherForm 
+          teacher={teacher}
+          classesList={classesList}
+          onSuccess={() => refetch()}
+        />
+      )
+    });
   };
 
   // Define Table Columns
@@ -263,22 +379,6 @@ export function Teachers() {
       render: (row: any) => getRoleBadge(row)
     },
     {
-      key: "class",
-      header: "Phụ trách",
-      render: (row: any) => {
-        const classesAssigned = row.class_teachers
-          ?.map((ct: any) => ct.classes?.name)
-          .filter(Boolean) || [];
-        return (
-          <span className="font-semibold text-on-surface-variant text-[13px]">
-            {classesAssigned.length > 0 
-              ? classesAssigned.join(", ") 
-              : (row.role === 'admin' ? "Ban giám hiệu" : (row.role === 'staff' ? "Văn phòng" : "Chưa phân lớp"))}
-          </span>
-        );
-      }
-    },
-    {
       key: "phone",
       header: "Số điện thoại",
       render: (row: any) => row.phone ? (
@@ -286,13 +386,6 @@ export function Teachers() {
           {row.phone}
         </a>
       ) : <span className="text-on-surface-variant/40">—</span>
-    },
-    {
-      key: "email",
-      header: "Email",
-      render: (row: any) => (
-        <span className="text-on-surface-variant text-[13px] font-medium select-all">{row.email}</span>
-      )
     },
     {
       key: "date_of_birth",
@@ -313,30 +406,19 @@ export function Teachers() {
       )
     },
     {
-      key: "is_active",
-      header: "Trạng thái",
-      render: (row: any) => (
-        <span className={cn(
-          "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border",
-          row.is_active 
-            ? "bg-green-50 text-green-700 border-green-200" 
-            : "bg-gray-50 text-gray-600 border-gray-200"
-        )}>
-          {row.is_active ? 'Đang làm' : 'Đã nghỉ'}
-        </span>
-      )
-    },
-    {
       key: "actions" as any,
       header: "Hành động",
       render: (row: any) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => {
-              setSelectedTeacher(row);
-              setFormMode('edit');
-              setIsFormOpen(true);
-            }}
+            onClick={() => handleOpenDetail(row.id)}
+            className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer"
+            title="Xem chi tiết"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleEditTeacher(row)}
             className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors cursor-pointer"
             title="Sửa thông tin"
           >
@@ -396,11 +478,7 @@ export function Teachers() {
           </div>
 
           <button 
-            onClick={() => {
-              setSelectedTeacher(null);
-              setFormMode('create');
-              setIsFormOpen(true);
-            }}
+            onClick={handleCreateTeacher}
             className="bg-primary text-on-primary px-5 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
           >
             <Plus className="w-5 h-5" />
@@ -435,9 +513,10 @@ export function Teachers() {
             className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
           >
             <option value="all">Tất cả chức vụ</option>
+            <option value="bgh">Ban Giám hiệu</option>
             <option value="teacher">Giáo viên</option>
-            <option value="admin">Ban giám hiệu / Quản trị</option>
-            <option value="staff">Nhân viên / Kế toán</option>
+            <option value="kitchen">Nhân viên: Tổ bếp</option>
+            <option value="maintenance">Kỹ thuật, bảo vệ, lao công</option>
           </select>
         </div>
 
@@ -541,24 +620,29 @@ export function Teachers() {
                   : (teacher.role === 'admin' ? "Ban giám hiệu" : (teacher.role === 'staff' ? "Văn phòng" : "Chưa phân lớp"));
 
                 return (
-                  <div key={teacher.id} className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between overflow-hidden">
+                  <div 
+                    key={teacher.id} 
+                    onClick={() => handleOpenDetail(teacher.id)}
+                    className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between overflow-hidden cursor-pointer"
+                  >
                     {/* Hover actions */}
-                    <div className="absolute top-4 right-4 flex gap-1 bg-white/85 dark:bg-slate-900/85 backdrop-blur-sm p-1 rounded-xl border border-outline-variant/30 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none">
+                    <div className="absolute top-4 right-4 flex gap-1 bg-white/85 dark:bg-slate-900/85 backdrop-blur-sm p-1 rounded-xl border border-outline-variant/30 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedTeacher(teacher);
-                          setFormMode('edit');
-                          setIsFormOpen(true);
-                        }}
+                        onClick={() => handleOpenDetail(teacher.id)}
+                        className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleEditTeacher(teacher)}
                         className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors cursor-pointer"
                         title="Sửa thông tin"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={() => {
                           setSelectedTeacher(teacher);
                           setIsDeleteDialogOpen(true);
                         }}
@@ -642,7 +726,7 @@ export function Teachers() {
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Số điện thoại</span>
-                                <a href={`tel:${teacher.phone}`} className="text-[14px] font-semibold text-primary hover:underline select-all">
+                                <a href={`tel:${teacher.phone}`} className="text-[14px] font-semibold text-primary hover:underline select-all" onClick={(e) => e.stopPropagation()}>
                                   {teacher.phone}
                                 </a>
                               </div>
@@ -662,6 +746,7 @@ export function Teachers() {
                 columns={tableColumns} 
                 data={teachersData} 
                 rowKey={(row) => row.id}
+                onRowClick={(row) => handleOpenDetail(row.id)}
                 emptyTitle="Không tìm thấy nhân sự"
                 emptyDescription="Không có nhân sự nào khớp với bộ lọc."
               />
@@ -698,25 +783,17 @@ export function Teachers() {
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog (for quick delete from list) */}
       <ConfirmDialog
         open={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={handleDeleteTeacher}
         title="Xóa nhân sự"
-        message={`Bạn có chắc chắn muốn xóa nhân sự ${selectedTeacher?.full_name || ''}? Hành động này sẽ chuyển trạng thái của nhân viên thành đã nghỉ việc.`}
+        message={`Bạn có chắc chắn muốn xóa hoàn toàn nhân sự ${selectedTeacher?.full_name || ''}? Hành động này không thể hoàn tác và sẽ xóa tất cả dữ liệu liên quan.`}
         confirmText="Xóa nhân sự"
         cancelText="Hủy"
         variant="danger"
         isConfirming={isDeleting}
-      />
-
-      {/* Form Modal for Creating/Editing Teacher */}
-      <TeacherForm
-        open={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        teacher={formMode === 'edit' ? selectedTeacher : null}
-        classesList={classesList}
       />
     </div>
   );

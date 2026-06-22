@@ -76,6 +76,7 @@ export function Login() {
         role: profile.role,
         phone: profile.phone,
         avatar_url: profile.avatar_url,
+        job_title: profile.job_title,
         is_active: profile.is_active,
         school_id: profile.school_id,
       });

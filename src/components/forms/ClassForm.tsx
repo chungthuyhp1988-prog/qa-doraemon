@@ -4,12 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Home, Users, Layers, Shield, FileText } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
   Button, 
-  Switch 
+  Switch,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -38,18 +38,17 @@ const STANDARD_CLASS_NAMES: Record<string, string[]> = {
 };
 
 interface ClassFormProps {
-  open: boolean;
-  onClose: () => void;
   classData?: any; // If editing
   teachersList: any[];
+  onSuccess?: () => void;
 }
 
 export const ClassForm: React.FC<ClassFormProps> = ({
-  open,
-  onClose,
   classData,
   teachersList,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
@@ -197,7 +196,8 @@ export const ClassForm: React.FC<ClassFormProps> = ({
       // Invalidate queries to refresh lists
       queryClient.invalidateQueries({ queryKey: ['classes-list'] });
       queryClient.invalidateQueries({ queryKey: ['classes-summary'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu thông tin', err.message || 'Lỗi hệ thống');
@@ -207,14 +207,9 @@ export const ClassForm: React.FC<ClassFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={classData ? 'Chỉnh sửa thông tin lớp học' : 'Thêm lớp học mới'}
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
           {nameMode === 'select' ? (
             <div className="flex flex-col gap-1.5 w-full">
@@ -372,27 +367,28 @@ export const ClassForm: React.FC<ClassFormProps> = ({
           />
         </div>
 
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            {classData ? 'Lưu thay đổi' : 'Tạo mới'}
-          </Button>
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePanel()}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              {classData ? 'Lưu thay đổi' : 'Tạo mới'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 };

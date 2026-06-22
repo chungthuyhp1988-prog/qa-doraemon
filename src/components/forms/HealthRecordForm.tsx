@@ -4,11 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Calendar, Ruler, Scale, Thermometer, ShieldAlert, Heart, Activity } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
-  Button 
+  Button,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -30,20 +30,19 @@ const healthRecordFormSchema = z.object({
 type HealthRecordFormValues = z.infer<typeof healthRecordFormSchema>;
 
 interface HealthRecordFormProps {
-  open: boolean;
-  onClose: () => void;
   record?: any; // If editing
   studentsList: any[];
   preselectedStudentId?: string; // If creating for a specific student
+  onSuccess?: () => void;
 }
 
 export const HealthRecordForm: React.FC<HealthRecordFormProps> = ({
-  open,
-  onClose,
   record,
   studentsList,
   preselectedStudentId,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [loading, setLoading] = useState(false);
@@ -104,7 +103,8 @@ export const HealthRecordForm: React.FC<HealthRecordFormProps> = ({
       // Invalidate queries to refresh lists
       queryClient.invalidateQueries({ queryKey: ['health-records'] });
       queryClient.invalidateQueries({ queryKey: ['health-student-history'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu thông tin', err.message || 'Lỗi hệ thống');
@@ -114,14 +114,9 @@ export const HealthRecordForm: React.FC<HealthRecordFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={record ? 'Chỉnh sửa hồ sơ sức khỏe' : 'Thêm hồ sơ sức khỏe'}
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
           {preselectedStudentId ? (
             <div className="sm:col-span-2">
@@ -220,27 +215,28 @@ export const HealthRecordForm: React.FC<HealthRecordFormProps> = ({
           {...register('notes')}
         />
 
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            {record ? 'Lưu thay đổi' : 'Ghi nhận'}
-          </Button>
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePanel()}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              {record ? 'Lưu thay đổi' : 'Ghi nhận'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 };

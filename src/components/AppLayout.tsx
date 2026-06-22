@@ -3,6 +3,8 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useUIStore } from '../stores/uiStore';
 import { useAuthStore } from '../stores/authStore';
+import { SlidePanelContainer } from './ui';
+
 
 /**
  * Main application layout with sidebar, topbar, and content area.
@@ -68,6 +70,9 @@ export function AppLayout() {
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
+
+      {/* SlidePanel Container */}
+      <SlidePanelContainer isSidebarCollapsed={sidebarCollapsed} />
     </div>
   );
 }

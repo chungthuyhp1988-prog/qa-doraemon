@@ -58,6 +58,11 @@ export interface SchoolRow {
   established_date: string | null;
   created_at: string;
   updated_at: string;
+  zalo_oa_id: string | null;
+  zalo_access_token: string | null;
+  zalo_refresh_token: string | null;
+  zalo_template_fee: string | null;
+  zalo_template_attendance: string | null;
 }
 
 export interface SchoolInsert {
@@ -71,6 +76,11 @@ export interface SchoolInsert {
   established_date?: string | null;
   created_at?: string;
   updated_at?: string;
+  zalo_oa_id?: string | null;
+  zalo_access_token?: string | null;
+  zalo_refresh_token?: string | null;
+  zalo_template_fee?: string | null;
+  zalo_template_attendance?: string | null;
 }
 
 export interface SchoolUpdate {
@@ -83,6 +93,11 @@ export interface SchoolUpdate {
   logo_url?: string | null;
   established_date?: string | null;
   updated_at?: string;
+  zalo_oa_id?: string | null;
+  zalo_access_token?: string | null;
+  zalo_refresh_token?: string | null;
+  zalo_template_fee?: string | null;
+  zalo_template_attendance?: string | null;
 }
 
 // ─────────────────────────────────────────────

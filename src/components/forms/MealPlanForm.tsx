@@ -4,11 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Calendar, Coffee, UtensilsCrossed, Apple, Info, Flame } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
-  Button 
+  Button,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -27,18 +27,17 @@ const mealPlanFormSchema = z.object({
 type MealPlanFormValues = z.infer<typeof mealPlanFormSchema>;
 
 interface MealPlanFormProps {
-  open: boolean;
-  onClose: () => void;
   mealPlan?: any; // If editing
   classesList: any[];
+  onSuccess?: () => void;
 }
 
 export const MealPlanForm: React.FC<MealPlanFormProps> = ({
-  open,
-  onClose,
   mealPlan,
   classesList,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -94,7 +93,8 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
 
       // Invalidate queries to refresh weekly list
       queryClient.invalidateQueries({ queryKey: ['meal-plans-weekly'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu thực đơn', err.message || 'Lỗi hệ thống');
@@ -104,14 +104,9 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={mealPlan ? 'Chỉnh sửa thực đơn bữa ăn' : 'Thêm thực đơn bữa ăn mới'}
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
           <Input
             label="Ngày áp dụng thực đơn"
@@ -167,27 +162,28 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
           {...register('notes')}
         />
 
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            {mealPlan ? 'Lưu thay đổi' : 'Lưu thực đơn'}
-          </Button>
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePanel()}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              {mealPlan ? 'Lưu thay đổi' : 'Lưu thực đơn'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 };

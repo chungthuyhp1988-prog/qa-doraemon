@@ -4,13 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Phone, Briefcase, Mail, MapPin, Calendar } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
   FileUpload, 
   Button, 
-  Switch 
+  Switch,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -22,8 +22,9 @@ const teacherFormSchema = z.object({
   full_name: z.string().min(1, 'Họ tên nhân sự là bắt buộc'),
   email: z.string().email('Email không hợp lệ').min(1, 'Email là bắt buộc'),
   phone: z.string().min(10, 'Số điện thoại tối thiểu 10 số').max(11, 'Số điện thoại tối đa 11 số'),
-  role: z.enum(['admin', 'teacher', 'staff']).default('teacher'),
+  role: z.enum(['admin', 'teacher', 'staff', 'staff_kitchen', 'staff_maintenance']).default('teacher'),
   job_title: z.string().min(1, 'Chức vụ là bắt buộc'),
+  custom_job_title: z.string().optional(),
   avatar_url: z.string().nullable().optional(),
   date_of_birth: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -34,30 +35,88 @@ const teacherFormSchema = z.object({
 type TeacherFormValues = z.infer<typeof teacherFormSchema>;
 
 interface TeacherFormProps {
-  open: boolean;
-  onClose: () => void;
   teacher?: any; // If editing
   classesList: any[];
+  onSuccess?: () => void;
 }
 
 export const TeacherForm: React.FC<TeacherFormProps> = ({
-  open,
-  onClose,
   teacher,
   classesList,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   
   const [loading, setLoading] = useState(false);
+
+  // Helper to determine role option for form
+  const getFormRole = (user: any) => {
+    if (!user) return 'teacher';
+    if (user.role === 'admin') return 'admin';
+    if (user.role === 'teacher') return 'teacher';
+    
+    // For 'staff', check job_title
+    const title = (user.job_title || '').toLowerCase().trim();
+    if (title.includes('bếp') || title.includes('cấp dưỡng') || title.includes('nấu ăn')) {
+      return 'staff_kitchen';
+    }
+    return 'staff_maintenance';
+  };
+
+  // Get pre-defined options for job titles based on role
+  const getJobTitleOptions = (role: string) => {
+    if (role === 'admin') {
+      return [
+        { value: 'Hiệu trưởng', label: 'Hiệu trưởng' },
+        { value: 'P. Hiệu trưởng', label: 'Phó Hiệu trưởng / P. Hiệu trưởng' },
+        { value: 'Kế toán', label: 'Kế toán' },
+        { value: 'Ban giám hiệu', label: 'Ban giám hiệu' },
+      ];
+    } else if (role === 'teacher') {
+      return [
+        { value: 'Giáo viên', label: 'Giáo viên' },
+        { value: 'Giáo viên chủ nhiệm', label: 'Giáo viên chủ nhiệm' },
+        { value: 'Giáo viên bộ môn', label: 'Giáo viên bộ môn' },
+      ];
+    } else if (role === 'staff_kitchen') {
+      return [
+        { value: 'NV cấp dưỡng', label: 'NV cấp dưỡng' },
+        { value: 'Bếp trưởng', label: 'Bếp trưởng' },
+        { value: 'Đầu bếp', label: 'Đầu bếp' },
+      ];
+    } else {
+      return [
+        { value: 'Bảo vệ', label: 'Bảo vệ' },
+        { value: 'Lao công', label: 'Lao công' },
+        { value: 'NV vệ sinh', label: 'NV vệ sinh' },
+        { value: 'NV kỹ thuật', label: 'NV kỹ thuật' },
+        { value: 'Nhân viên', label: 'Nhân viên' },
+      ];
+    }
+  };
+
+  const getInitialJobTitle = (title: string | undefined, role: string) => {
+    if (!title) return '';
+    const opts = getJobTitleOptions(role);
+    if (opts.some(o => o.value === title)) {
+      return title;
+    }
+    return 'custom';
+  };
+
+  const initialRole = getFormRole(teacher);
+  const initialJobTitle = getInitialJobTitle(teacher?.job_title, initialRole);
 
   // Map initial values
   const defaultValues: TeacherFormValues = {
     full_name: teacher?.full_name || '',
     email: teacher?.email || '',
     phone: teacher?.phone || '',
-    role: teacher?.role || 'teacher',
-    job_title: teacher?.job_title || '',
+    role: initialRole,
+    job_title: initialJobTitle,
+    custom_job_title: initialJobTitle === 'custom' ? teacher?.job_title : '',
     avatar_url: teacher?.avatar_url || '',
     date_of_birth: teacher?.date_of_birth ? teacher.date_of_birth.split('T')[0] : '',
     address: teacher?.address || '',
@@ -71,15 +130,51 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
     control,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm<TeacherFormValues>({
     resolver: zodResolver(teacherFormSchema) as any,
     defaultValues,
   });
 
+  React.useEffect(() => {
+    if (open) {
+      const currentRole = getFormRole(teacher);
+      const currentJobTitle = getInitialJobTitle(teacher?.job_title, currentRole);
+      reset({
+        full_name: teacher?.full_name || '',
+        email: teacher?.email || '',
+        phone: teacher?.phone || '',
+        role: currentRole,
+        job_title: currentJobTitle,
+        custom_job_title: currentJobTitle === 'custom' ? teacher?.job_title : '',
+        avatar_url: teacher?.avatar_url || '',
+        date_of_birth: teacher?.date_of_birth ? teacher.date_of_birth.split('T')[0] : '',
+        address: teacher?.address || '',
+        is_active: teacher?.is_active !== undefined ? teacher.is_active : true,
+        assigned_class_ids: teacher?.class_teachers?.map((ct: any) => ct.class_id) || [],
+      });
+      prevRoleRef.current = currentRole;
+    }
+  }, [teacher, open, reset]);
+
   const selectedRole = watch('role');
   const avatarUrl = watch('avatar_url');
   const assignedClassIds = watch('assigned_class_ids') || [];
+
+  const prevRoleRef = React.useRef(defaultValues.role);
+  React.useEffect(() => {
+    if (selectedRole !== prevRoleRef.current) {
+      // Role has changed, reset job_title to default for that role
+      const defaultJobTitle = selectedRole === 'teacher' ? 'Giáo viên' 
+        : selectedRole === 'admin' ? 'P. Hiệu trưởng' 
+        : selectedRole === 'staff_kitchen' ? 'NV cấp dưỡng' 
+        : 'Nhân viên';
+      setValue('job_title', defaultJobTitle);
+      setValue('custom_job_title', '');
+      prevRoleRef.current = selectedRole;
+    }
+  }, [selectedRole, setValue]);
 
   const handleClassToggle = (classId: string) => {
     const current = [...assignedClassIds];
@@ -93,16 +188,22 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
   };
 
   const onSubmit = async (values: TeacherFormValues) => {
+    const finalJobTitle = values.job_title === 'custom' ? (values.custom_job_title || '').trim() : values.job_title;
+    if (values.job_title === 'custom' && !finalJobTitle) {
+      toast.error('Vui lòng nhập chức vụ tùy chỉnh');
+      return;
+    }
+
     setLoading(true);
     try {
       const userPayload = {
         school_id: schoolId,
         email: values.email.trim().toLowerCase(),
         full_name: values.full_name,
-        role: values.role,
+        role: (values.role === 'staff_kitchen' || values.role === 'staff_maintenance') ? 'staff' : values.role,
         phone: values.phone || null,
         avatar_url: values.avatar_url || null,
-        job_title: values.job_title,
+        job_title: finalJobTitle,
         date_of_birth: values.date_of_birth || null,
         address: values.address || null,
         is_active: values.is_active,
@@ -173,7 +274,8 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
 
       // Invalidate queries to refresh list
       queryClient.invalidateQueries({ queryKey: ['teachers-list'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu thông tin', err.message || 'Lỗi hệ thống');
@@ -183,14 +285,9 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={teacher ? 'Chỉnh sửa thông tin nhân sự' : 'Thêm nhân sự mới'}
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
         
         {/* Avatar & Basic Profile Info */}
         <div className="flex flex-col md:flex-row gap-5 items-start">
@@ -245,21 +342,33 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
           <Select
             label="Nhóm vai trò hệ thống"
             options={[
-              { value: 'teacher', label: 'Giáo viên (Phụ trách lớp)' },
-              { value: 'admin', label: 'Ban giám hiệu (Quản trị hệ thống)' },
-              { value: 'staff', label: 'Nhân viên văn phòng / Khác' },
+              { value: 'admin', label: 'Ban Giám hiệu' },
+              { value: 'teacher', label: 'Giáo viên' },
+              { value: 'staff_kitchen', label: 'Nhân viên: Tổ bếp' },
+              { value: 'staff_maintenance', label: 'Kỹ thuật, bảo vệ, lao công' },
             ]}
             error={errors.role?.message}
             {...register('role')}
           />
 
-          <Input
-            label="Chức vụ hiển thị"
-            placeholder="Ví dụ: Hiệu trưởng, Hiệu phó, Giáo viên chủ nhiệm..."
-            leftIcon={<Briefcase />}
-            error={errors.job_title?.message}
-            {...register('job_title')}
-          />
+          <div className="flex flex-col gap-1.5">
+            <Select
+              label="Chức vụ hiển thị"
+              options={[
+                ...getJobTitleOptions(selectedRole),
+                { value: 'custom', label: 'Khác (Nhập thủ công)...' }
+              ]}
+              error={errors.job_title?.message}
+              {...register('job_title')}
+            />
+            {watch('job_title') === 'custom' && (
+              <Input
+                placeholder="Nhập chức vụ thủ công..."
+                error={errors.custom_job_title?.message}
+                {...register('custom_job_title')}
+              />
+            )}
+          </div>
 
           <div className="sm:col-span-2">
             <Input
@@ -328,27 +437,28 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
           />
         </div>
 
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            {teacher ? 'Lưu thay đổi' : 'Tạo mới'}
-          </Button>
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePanel()}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              {teacher ? 'Lưu thay đổi' : 'Tạo mới'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 };

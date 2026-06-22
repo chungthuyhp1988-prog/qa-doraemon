@@ -17,17 +17,18 @@ import {
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { toast } from "../stores/toastStore";
-import { ConfirmDialog } from "../components/ui";
+import { ConfirmDialog, useSlidePanel } from "../components/ui";
 import { NotificationForm } from "../components/forms/NotificationForm";
+import { NotificationDetailPanel } from "../components/details/NotificationDetailPanel";
 import { useAuthStore } from "../stores/authStore";
 
 export function Notifications() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const isPrivileged = user?.role === 'admin' || user?.role === 'teacher';
+  const { openPanel } = useSlidePanel();
 
   // Modal / Form States
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
@@ -126,6 +127,42 @@ export function Notifications() {
     }
   };
 
+  const handleCreateNotification = () => {
+    openPanel({
+      title: 'Soạn thông báo mới',
+      icon: <Plus size={14} />,
+      width: 768,
+      component: (
+        <NotificationForm 
+          classesList={classesList}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+          }}
+        />
+      )
+    });
+  };
+
+  const handleViewDetail = async (notif: any) => {
+    if (!notif.is_read) {
+      await handleMarkAsRead(notif);
+    }
+    openPanel({
+      title: 'Chi tiết thông báo',
+      icon: <Bell size={14} />,
+      width: 768,
+      component: (
+        <NotificationDetailPanel 
+          notificationId={notif.id}
+          classesList={classesList}
+          onDeleteSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+          }}
+        />
+      )
+    });
+  };
+
   const getTypeBadge = (type: string) => {
     switch (type) {
       case 'announcement':
@@ -192,7 +229,7 @@ export function Notifications() {
 
           {isPrivileged && (
             <button
-              onClick={() => setIsFormOpen(true)}
+              onClick={handleCreateNotification}
               className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -264,9 +301,9 @@ export function Notifications() {
             return (
               <div
                 key={notif.id}
-                onClick={() => !isRead && handleMarkAsRead(notif)}
+                onClick={() => handleViewDetail(notif)}
                 className={cn(
-                  "p-5 rounded-3xl border transition-all flex flex-col md:flex-row items-start justify-between gap-4 select-none relative hover:shadow-md",
+                  "p-5 rounded-3xl border transition-all flex flex-col md:flex-row items-start justify-between gap-4 select-none relative hover:shadow-md cursor-pointer",
                   isRead
                     ? "bg-surface border-outline-variant/40 hover:border-outline"
                     : "bg-primary-container/10 border-primary/50 shadow-sm hover:border-primary"
@@ -337,14 +374,7 @@ export function Notifications() {
         </div>
       )}
 
-      {/* Notification Form Modal */}
-      {isFormOpen && (
-        <NotificationForm
-          open={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
-          classesList={classesList}
-        />
-      )}
+
 
       {/* Delete Confirmation */}
       <ConfirmDialog

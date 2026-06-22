@@ -4,12 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FileText, Users, MessageSquare, Bell, UserCheck } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
   Button, 
-  Switch 
+  Switch,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -29,16 +29,17 @@ const notificationFormSchema = z.object({
 type NotificationFormValues = z.infer<typeof notificationFormSchema>;
 
 interface NotificationFormProps {
-  open: boolean;
-  onClose: () => void;
   classesList: any[];
+  notification?: any; // If editing
+  onSuccess?: () => void;
 }
 
 export const NotificationForm: React.FC<NotificationFormProps> = ({
-  open,
-  onClose,
   classesList,
+  notification,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -55,11 +56,11 @@ export const NotificationForm: React.FC<NotificationFormProps> = ({
   } = useForm<NotificationFormValues>({
     resolver: zodResolver(notificationFormSchema) as any,
     defaultValues: {
-      title: '',
-      content: '',
-      type: 'announcement',
-      target: 'all',
-      target_id: '',
+      title: notification?.title || '',
+      content: notification?.content || '',
+      type: notification?.type || 'announcement',
+      target: notification?.target || 'all',
+      target_id: notification?.target_id || '',
       send_zalo: false,
     },
   });
@@ -90,84 +91,94 @@ export const NotificationForm: React.FC<NotificationFormProps> = ({
         target: values.target,
         target_id: values.target_id || null,
         is_read: false,
-        sent_at: new Date().toISOString(),
-        created_by: currentUserId || null,
-        created_at: new Date().toISOString(),
+        sent_at: notification?.sent_at || new Date().toISOString(),
+        created_by: notification?.created_by || currentUserId || null,
         updated_at: new Date().toISOString(),
       };
 
-      // 1. Create database notification record
-      const res = await api.create('notifications', notificationPayload);
-      if (res.error) throw new Error(res.error);
+      if (notification?.id) {
+        // 1. Update database record
+        const res = await api.update('notifications', notification.id, notificationPayload);
+        if (res.error) throw new Error(res.error);
+        toast.success('Cập nhật thông báo thành công!');
+      } else {
+        // 1. Create database notification record
+        const res = await api.create('notifications', {
+          ...notificationPayload,
+          created_at: new Date().toISOString(),
+        });
+        if (res.error) throw new Error(res.error);
 
-      // 2. Handle Zalo OA integration if enabled
-      if (values.send_zalo) {
-        toast.info('Đang gửi tin nhắn Zalo OA đến phụ huynh...', 'Vui lòng đợi trong giây lát');
-        
-        let sentCount = 0;
-        
-        if (values.target === 'individual' && values.target_id) {
-          // Fetch student guardians
-          const { data: guardiansData } = await api.getAll<any>(
-            'guardians', 
-            { page: 1, pageSize: 100 }, 
-            { filters: { student_id: values.target_id, is_primary: true } }
-          );
-          const primaryGuardian = guardiansData?.data?.[0];
-          if (primaryGuardian?.phone) {
-            await zalo.sendNotification(primaryGuardian.phone, values.title, values.content);
-            sentCount = 1;
-          }
-        } else if (values.target === 'class' && values.target_id) {
-          // Fetch all students in class
-          const { data: studentsData } = await api.getAll<any>(
-            'students', 
-            { page: 1, pageSize: 100 }, 
-            { filters: { class_id: values.target_id, status: 'active' } }
-          );
+        // 2. Handle Zalo OA integration if enabled (only for new notifications)
+        if (values.send_zalo) {
+          toast.info('Đang gửi tin nhắn Zalo OA đến phụ huynh...', 'Vui lòng đợi trong giây lát');
           
-          if (studentsData?.data && studentsData.data.length > 0) {
-            const studentIds = studentsData.data.map(s => s.id);
-            // Fetch guardians for these students
+          let sentCount = 0;
+          
+          if (values.target === 'individual' && values.target_id) {
+            // Fetch student guardians
+            const { data: guardiansData } = await api.getAll<any>(
+              'guardians', 
+              { page: 1, pageSize: 100 }, 
+              { filters: { student_id: values.target_id, is_primary: true } }
+            );
+            const primaryGuardian = guardiansData?.data?.[0];
+            if (primaryGuardian?.phone) {
+              await zalo.sendNotification(primaryGuardian.phone, values.title, values.content);
+              sentCount = 1;
+            }
+          } else if (values.target === 'class' && values.target_id) {
+            // Fetch all students in class
+            const { data: studentsData } = await api.getAll<any>(
+              'students', 
+              { page: 1, pageSize: 100 }, 
+              { filters: { class_id: values.target_id, status: 'active' } }
+            );
+            
+            if (studentsData?.data && studentsData.data.length > 0) {
+              const studentIds = studentsData.data.map(s => s.id);
+              // Fetch guardians for these students
+              const { data: guardiansData } = await api.getAll<any>(
+                'guardians',
+                { page: 1, pageSize: 1000 },
+                { filters: { is_primary: true } }
+              );
+              
+              const relevantGuardians = (guardiansData?.data || []).filter(g => studentIds.includes(g.student_id));
+              
+              for (const guardian of relevantGuardians) {
+                if (guardian.phone) {
+                  await zalo.sendNotification(guardian.phone, values.title, values.content);
+                  sentCount++;
+                }
+              }
+            }
+          } else {
+            // Send to first 3 primary guardians for demonstration
             const { data: guardiansData } = await api.getAll<any>(
               'guardians',
-              { page: 1, pageSize: 1000 },
+              { page: 1, pageSize: 3 },
               { filters: { is_primary: true } }
             );
             
-            const relevantGuardians = (guardiansData?.data || []).filter(g => studentIds.includes(g.student_id));
-            
-            for (const guardian of relevantGuardians) {
+            for (const guardian of (guardiansData?.data || [])) {
               if (guardian.phone) {
                 await zalo.sendNotification(guardian.phone, values.title, values.content);
                 sentCount++;
               }
             }
           }
-        } else {
-          // Send to first 3 primary guardians for demonstration
-          const { data: guardiansData } = await api.getAll<any>(
-            'guardians',
-            { page: 1, pageSize: 3 },
-            { filters: { is_primary: true } }
-          );
           
-          for (const guardian of (guardiansData?.data || [])) {
-            if (guardian.phone) {
-              await zalo.sendNotification(guardian.phone, values.title, values.content);
-              sentCount++;
-            }
-          }
+          toast.success(`Đã gửi ${sentCount} tin nhắn Zalo OA thành công!`);
+        } else {
+          toast.success('Gửi thông báo thành công!');
         }
-        
-        toast.success(`Đã gửi ${sentCount} tin nhắn Zalo OA thành công!`);
-      } else {
-        toast.success('Gửi thông báo thành công!');
       }
 
       // Invalidate queries to refresh list
       queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi gửi thông báo', err.message || 'Lỗi hệ thống');
@@ -177,14 +188,9 @@ export const NotificationForm: React.FC<NotificationFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title="Soạn thông báo mới"
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none max-h-[70vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 select-none flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
         <Input
           label="Tiêu đề thông báo"
           placeholder="Nhập tiêu đề thông báo..."
@@ -273,27 +279,28 @@ export const NotificationForm: React.FC<NotificationFormProps> = ({
           />
         </div>
 
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            className="rounded-xl cursor-pointer"
-          >
-            Gửi thông báo
-          </Button>
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/40 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePanel()}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading}
+              className="rounded-xl cursor-pointer"
+            >
+              {notification ? 'Lưu thay đổi' : 'Gửi thông báo'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 };

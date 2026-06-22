@@ -17,6 +17,7 @@ import { Notifications } from './views/Notifications';
 import { Settings } from './views/Settings';
 import { ToastContainer } from './components/ui';
 import { useAppStore } from './stores/appStore';
+import { SlidePanelProvider } from './context/SlidePanelContext';
 
 // TanStack Query client with sensible defaults
 const queryClient = new QueryClient({
@@ -39,8 +40,10 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastContainer />
-      <BrowserRouter>
+      <SlidePanelProvider>
+        <ToastContainer />
+        <BrowserRouter>
+
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -70,6 +73,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </SlidePanelProvider>
     </QueryClientProvider>
   );
 }

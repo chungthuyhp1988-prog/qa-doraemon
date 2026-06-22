@@ -4,14 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, User, Phone, Briefcase, Mail, Check } from 'lucide-react';
 import { 
-  Modal, 
   Input, 
   Select, 
   Textarea, 
   FileUpload, 
   Button, 
   Switch,
-  Tabs 
+  Tabs,
+  useSlidePanel
 } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { api } from '../../lib/api';
@@ -47,18 +47,17 @@ const studentFormSchema = z.object({
 type StudentFormValues = z.infer<typeof studentFormSchema>;
 
 interface StudentFormProps {
-  open: boolean;
-  onClose: () => void;
   student?: any; // If editing
   classesList: any[];
+  onSuccess?: () => void;
 }
 
 export const StudentForm: React.FC<StudentFormProps> = ({
-  open,
-  onClose,
   student,
   classesList,
+  onSuccess,
 }) => {
+  const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   
@@ -190,7 +189,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({
 
       // Invalidate query to refresh students list
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
-      onClose();
+      if (onSuccess) onSuccess();
+      closePanel();
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi lưu thông tin', err.message || 'Lỗi hệ thống');
@@ -207,14 +207,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={loading ? () => {} : onClose}
-      title={student ? 'Chỉnh sửa thông tin học sinh' : 'Thêm học sinh mới'}
-      size="lg"
-      showCloseButton={!loading}
-    >
-      <div className="flex flex-col gap-5 select-none max-h-[70vh]">
+    <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
         {/* Navigation Tabs inside Modal */}
         <Tabs
           tabs={[
@@ -457,7 +450,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={() => closePanel()}
               disabled={loading}
               className="rounded-xl cursor-pointer"
             >
@@ -474,6 +467,5 @@ export const StudentForm: React.FC<StudentFormProps> = ({
           </div>
         </form>
       </div>
-    </Modal>
   );
 };
