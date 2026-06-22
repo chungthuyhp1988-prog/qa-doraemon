@@ -25,3 +25,6 @@ export { FormField, type FormFieldProps } from "./FormField";
 export { SlidePanelContainer } from "./SlidePanel";
 export { useSlidePanel, useSlidePanelSafe } from "../../context/SlidePanelContext";
 
+// Excel Import Modal
+export { ExcelImportModal } from "./ExcelImportModal";
+

@@ -270,8 +270,8 @@ export function Nutrition() {
       {/* Header section - hidden in printing */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Dinh Dưỡng & Thực Đơn</h1>
-          <p className="text-sm text-on-surface-variant">
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Dinh Dưỡng & Thực Đơn</h2>
+          <p className="text-[13px] md:text-[14px] text-on-surface-variant mt-1 font-inter">
             Lập kế hoạch thực đơn dinh dưỡng hàng tuần và in gửi phụ huynh học sinh.
           </p>
         </div>
@@ -309,7 +309,7 @@ export function Nutrition() {
       </div>
 
       {/* Week navigator & Filters - hidden in printing */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-outline-variant/40 rounded-2xl p-4 print:hidden shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface border border-outline-variant/40 rounded-2xl p-4 print:hidden shadow-xs">
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrevWeek}
@@ -364,13 +364,13 @@ export function Nutrition() {
 
       {/* Weekly Grid */}
       {isLoading ? (
-        <div className="h-96 bg-white border border-outline-variant/20 rounded-3xl animate-pulse shadow-xs" />
+        <div className="h-96 bg-surface border border-outline-variant/20 rounded-3xl animate-pulse shadow-xs" />
       ) : (
-        <div className="overflow-x-auto bg-white border border-outline-variant/40 rounded-[32px] print:border-slate-300 print:rounded-none shadow-xs">
+        <div className="overflow-x-auto max-h-[650px] overflow-y-auto relative bg-surface border border-outline-variant/40 rounded-[32px] print:border-slate-300 print:rounded-none shadow-xs">
           <table className="w-full text-left text-sm border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-outline-variant/30 print:bg-slate-100 print:border-slate-300">
-                <th className="px-4 py-4 font-extrabold text-on-surface-variant text-[11px] uppercase tracking-wider text-center w-[12%]">Bữa ăn</th>
+                <th className="px-4 py-4 font-extrabold text-on-surface text-[11px] uppercase tracking-wider text-center w-[12%] sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_0_var(--color-outline-variant)]">Bữa ăn</th>
                 {weekDates.map((d, index) => {
                   const dayName = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'][index];
                   const isToday = new Date().toDateString() === d.toDateString();
@@ -378,8 +378,10 @@ export function Nutrition() {
                     <th
                       key={index}
                       className={cn(
-                        "px-4 py-4 font-extrabold text-[11px] uppercase tracking-wider text-center border-l border-outline-variant/30 print:border-slate-300",
-                        isToday ? "bg-primary-container/20 text-primary print:bg-transparent print:text-slate-800" : "text-on-surface-variant"
+                        "px-4 py-4 font-extrabold text-[11px] uppercase tracking-wider text-center border-l border-outline-variant/30 print:border-slate-300 sticky top-0 z-10 shadow-[0_1px_0_0_var(--color-outline-variant)]",
+                        isToday 
+                          ? "bg-primary-container text-primary print:bg-transparent print:text-slate-800" 
+                          : "bg-slate-50 text-on-surface-variant"
                       )}
                     >
                       <div className="font-bold">{dayName}</div>

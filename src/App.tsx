@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './views/Login';
 import { Dashboard } from './views/Dashboard';
 import { Students } from './views/Students';
+import { Registrations } from './views/Registrations';
 import { Teachers } from './views/Teachers';
 import { Attendance } from './views/Attendance';
 import { Finance } from './views/Finance';
@@ -58,6 +59,7 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="students" element={<Students />} />
+            <Route path="registrations" element={<Registrations />} />
             <Route path="teachers" element={<Teachers />} />
             <Route path="classes" element={<Classes />} />
             <Route path="attendance" element={<Attendance />} />

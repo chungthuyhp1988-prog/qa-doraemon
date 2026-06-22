@@ -16,6 +16,7 @@ import {
   LogOut,
   School,
   Award,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -51,6 +52,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Học Sinh", icon: Users },
+  { to: "/registrations", label: "Đăng Ký", icon: UserPlus },
   { to: "/teachers", label: "Giáo Viên", icon: GraduationCap },
   { to: "/classes", label: "Lớp Học", icon: BookOpen },
   { to: "/attendance", label: "Điểm Danh", icon: ClipboardCheck },

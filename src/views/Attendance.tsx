@@ -11,11 +11,11 @@ import {
   Edit2,
   MessageSquare,
   LayoutGrid,
-  Table
+  Table as TableIcon
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { DatePicker, Skeleton, EmptyState, Button, Modal } from "../components/ui";
+import { DatePicker, Skeleton, EmptyState, Button, Modal, Table, type TableColumn } from "../components/ui";
 import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
 import { format } from "date-fns";
@@ -215,7 +215,181 @@ export function Attendance() {
     }
   });
 
+  const getAttendanceBadge = (status: string) => {
+    switch (status) {
+      case 'present':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Có mặt</span>;
+      case 'absent':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] bg-rose-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Vắng</span>;
+      case 'late':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-extrabold tracking-wide shadow-2xs select-none">Đi trễ</span>;
+      case 'sick':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] bg-purple-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Nghỉ bệnh</span>;
+      case 'excused':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] bg-purple-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Có phép</span>;
+      default:
+        return null;
+    }
+  };
+
   const unmarkedCount = totalStudents - (presentCount + absentCount + lateCount + sickCount + excusedCount);
+
+  // Define Table Columns
+  const tableColumns: TableColumn<any>[] = [
+    {
+      key: "stt",
+      header: "STT",
+      align: "center",
+      width: "64px",
+      render: (_row: any, index: number) => (
+        <span className="font-semibold text-on-surface-variant/70">
+          {index + 1}
+        </span>
+      )
+    },
+    {
+      key: "student",
+      header: "Học sinh",
+      render: (row: any) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-outline-variant/45 shrink-0 bg-primary/5 flex items-center justify-center">
+            {row.profile_image_url ? (
+              <img src={row.profile_image_url} alt={row.full_name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[12px] font-bold text-primary font-playfair">
+                {getInitials(row.full_name)}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-[14.5px] font-bold font-playfair text-on-surface truncate leading-tight" title={row.full_name}>
+              {row.full_name}
+            </h4>
+            <p className="text-[10px] font-semibold text-on-surface-variant/60 uppercase tracking-widest mt-0.5 select-all">
+              {row.student_code}
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: "attendance",
+      header: "Điểm danh",
+      render: (row: any) => {
+        const attendanceRecord = attendanceMap.get(row.id);
+        const status = attendanceRecord?.status;
+        return (
+          <div className="flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => handleStatusChange(row.id, 'present')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
+                status === 'present'
+                  ? "bg-green-600 border-green-600 text-white shadow-sm"
+                  : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
+              )}
+            >
+              Có mặt
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => handleStatusChange(row.id, 'absent')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
+                status === 'absent'
+                  ? "bg-rose-600 border-rose-600 text-white shadow-sm"
+                  : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
+              )}
+            >
+              Vắng
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStatusChange(row.id, 'late')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
+                status === 'late'
+                  ? "bg-amber-500 border-amber-500 text-white shadow-sm"
+                  : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
+              )}
+            >
+              Đi trễ
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStatusChange(row.id, 'excused')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
+                status === 'excused'
+                  ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                  : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
+              )}
+            >
+              Có phép
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStatusChange(row.id, 'sick')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
+                status === 'sick'
+                  ? "bg-violet-600 border-violet-600 text-white shadow-sm"
+                  : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
+              )}
+            >
+              Bệnh
+            </button>
+          </div>
+        );
+      }
+    },
+    {
+      key: "note",
+      header: "Ghi chú",
+      render: (row: any) => {
+        const attendanceRecord = attendanceMap.get(row.id);
+        const note = attendanceRecord?.note;
+        return note ? (
+          <div className="flex items-start gap-1.5 text-xs text-on-surface-variant max-w-[280px]" title={note}>
+            <MessageSquare className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+            <span className="line-clamp-2 select-text">{note}</span>
+          </div>
+        ) : (
+          <span className="text-xs text-on-surface-variant/40 italic select-none">Chưa có ghi chú</span>
+        );
+      }
+    },
+    {
+      key: "actions",
+      header: "Thao tác",
+      align: "right",
+      render: (row: any) => {
+        const attendanceRecord = attendanceMap.get(row.id);
+        const note = attendanceRecord?.note;
+        return (
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedStudentForNote(row);
+                setTempNote(note || "");
+                setIsNoteModalOpen(true);
+              }}
+              className="p-2 border border-outline-variant/40 rounded-xl hover:bg-surface-container transition-colors cursor-pointer"
+              title="Thêm ghi chú"
+            >
+              <Edit2 className="w-3.5 h-3.5 text-on-surface-variant" />
+            </button>
+          </div>
+        );
+      }
+    }
+  ];
 
   const isLoading = isLoadingClasses || isLoadingStudents || isLoadingAttendance;
 
@@ -224,7 +398,7 @@ export function Attendance() {
       {/* Header section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
             Điểm danh hàng ngày
           </h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1 font-inter">
@@ -278,71 +452,65 @@ export function Attendance() {
               )}
               title="Xem dạng bảng"
             >
-              <Table className="w-4.5 h-4.5" />
+              <TableIcon className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Filter and Date selection panel */}
-      <div className="bg-surface-container-lowest p-5 rounded-[32px] border border-outline-variant/30 shadow-sm flex flex-wrap md:flex-nowrap gap-4 items-end mb-8">
+      <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap md:flex-nowrap gap-3.5 items-center mb-5">
         <div className="w-full md:w-64">
           <DatePicker
-            label="Chọn ngày điểm danh"
             value={selectedDate}
             onChange={(date) => date && setSelectedDate(date)}
             maxDate={format(new Date(), 'yyyy-MM-dd')}
           />
         </div>
 
-        <div className="flex flex-col gap-1.5 w-full md:w-64">
-          <label className="text-[13px] font-semibold text-on-surface tracking-[0.01em]">
-            Chọn lớp học
-          </label>
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="w-full rounded-xl border border-outline-variant hover:border-outline bg-surface-container-lowest font-inter text-sm h-10 px-3 text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-          >
-            {classesList.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-            {classesList.length === 0 && (
-              <option value="">Không có lớp học nào</option>
-            )}
-          </select>
-        </div>
+        <select
+          value={selectedClassId}
+          onChange={(e) => setSelectedClassId(e.target.value)}
+          className="w-full md:w-64 h-10 rounded-xl border border-outline-variant hover:border-outline bg-surface-container-lowest font-inter text-sm px-3 text-on-surface focus:outline-none focus:border-primary transition-all cursor-pointer font-semibold text-on-surface-variant"
+        >
+          {classesList.map((c: any) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+          {classesList.length === 0 && (
+            <option value="">Không có lớp học nào</option>
+          )}
+        </select>
 
-        <div className="text-on-surface-variant/80 text-[13px] font-semibold md:ml-auto pb-2.5">
+        <div className="text-on-surface-variant/80 text-[13px] font-semibold md:ml-auto">
           Ngày hiển thị: <strong className="text-primary font-bold">{format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}</strong>
         </div>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Tổng sĩ số</span>
-          <span className="text-[28px] font-bold font-playfair text-on-surface mt-2">{totalStudents}</span>
+        <div className="bg-surface rounded-2xl border border-outline-variant/65 border-l-4 border-l-slate-500 p-4 shadow-2xs flex flex-col justify-between min-h-[92px]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tổng sĩ số</span>
+          <span className="text-[28px] font-black font-playfair text-slate-900 dark:text-slate-50 mt-1 leading-none">{totalStudents}</span>
         </div>
-        <div className="bg-green-50/40 dark:bg-green-950/10 rounded-2xl border border-green-100 dark:border-green-900/30 p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-green-700 dark:text-green-400">Có mặt</span>
-          <span className="text-[28px] font-bold font-playfair text-green-700 dark:text-green-400 mt-2">{presentCount}</span>
+        <div className="bg-surface rounded-2xl border border-outline-variant/65 border-l-4 border-l-emerald-500 p-4 shadow-2xs flex flex-col justify-between min-h-[92px]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Có mặt</span>
+          <span className="text-[28px] font-black font-playfair text-emerald-600 dark:text-emerald-400 mt-1 leading-none">{presentCount}</span>
         </div>
-        <div className="bg-rose-50/40 dark:bg-rose-950/10 rounded-2xl border border-rose-100 dark:border-rose-900/30 p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">Vắng mặt</span>
-          <span className="text-[28px] font-bold font-playfair text-rose-700 dark:text-rose-400 mt-2">{absentCount}</span>
+        <div className="bg-surface rounded-2xl border border-outline-variant/65 border-l-4 border-l-rose-500 p-4 shadow-2xs flex flex-col justify-between min-h-[92px]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-400">Vắng mặt</span>
+          <span className="text-[28px] font-black font-playfair text-rose-600 dark:text-rose-450 mt-1 leading-none">{absentCount}</span>
         </div>
-        <div className="bg-amber-50/40 dark:bg-amber-950/10 rounded-2xl border border-amber-100 dark:border-amber-900/30 p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Đi trễ</span>
-          <span className="text-[28px] font-bold font-playfair text-amber-700 dark:text-amber-400 mt-2">{lateCount}</span>
+        <div className="bg-surface rounded-2xl border border-outline-variant/65 border-l-4 border-l-amber-500 p-4 shadow-2xs flex flex-col justify-between min-h-[92px]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">Đi trễ</span>
+          <span className="text-[28px] font-black font-playfair text-amber-600 dark:text-amber-450 mt-1 leading-none">{lateCount}</span>
         </div>
-        <div className="bg-purple-50/40 dark:bg-purple-950/10 rounded-2xl border border-purple-100 dark:border-purple-900/30 p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">Có phép / Bệnh</span>
-          <span className="text-[28px] font-bold font-playfair text-purple-700 dark:text-purple-400 mt-2">{excusedCount + sickCount}</span>
+        <div className="bg-surface rounded-2xl border border-outline-variant/65 border-l-4 border-l-purple-500 p-4 shadow-2xs flex flex-col justify-between min-h-[92px]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-700 dark:text-purple-400">Có phép / Bệnh</span>
+          <span className="text-[28px] font-black font-playfair text-purple-600 dark:text-purple-450 mt-1 leading-none">{excusedCount + sickCount}</span>
         </div>
-        <div className="bg-slate-50/60 dark:bg-slate-900/20 rounded-2xl border border-slate-200/50 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Chưa điểm danh</span>
-          <span className="text-[28px] font-bold font-playfair text-slate-600 dark:text-slate-400 mt-2">{unmarkedCount}</span>
+        <div className="bg-surface rounded-2xl border border-outline-variant/65 border-l-4 border-l-slate-400 p-4 shadow-2xs flex flex-col justify-between min-h-[92px]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">Chưa điểm danh</span>
+          <span className="text-[28px] font-black font-playfair text-slate-600 dark:text-slate-400 mt-1 leading-none">{unmarkedCount}</span>
         </div>
       </div>
 
@@ -364,7 +532,7 @@ export function Attendance() {
             ))}
           </div>
         ) : (
-          <div className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 shadow-sm overflow-hidden p-6 animate-pulse space-y-4">
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden p-6 animate-pulse space-y-4">
             <div className="h-8 bg-surface-variant/40 rounded w-1/4 mb-6" />
             {[...Array(6)].map((_, i) => (
               <div key={i} className="flex items-center gap-4 py-3 border-b border-outline-variant/20">
@@ -429,17 +597,7 @@ export function Attendance() {
                     </div>
 
                     {/* Status Badge */}
-                    {status && (
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0",
-                        status === 'present' && "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/30",
-                        status === 'absent' && "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/30",
-                        status === 'late' && "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/30",
-                        (status === 'sick' || status === 'excused') && "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900/30"
-                      )}>
-                        {status === 'present' ? 'Có mặt' : status === 'absent' ? 'Vắng' : status === 'late' ? 'Đi trễ' : status === 'sick' ? 'Bệnh' : 'Phép'}
-                      </span>
-                    )}
+                    {status && getAttendanceBadge(status)}
                   </div>
 
                   {/* Note section */}
@@ -520,158 +678,12 @@ export function Attendance() {
           })}
         </div>
       ) : (
-        <div className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 shadow-sm overflow-hidden animate-in fade-in duration-300">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant/30 select-none">
-                  <th className="pl-6 pr-4 py-4 text-[12px] font-bold uppercase tracking-wider text-center w-16">STT</th>
-                  <th className="px-4 py-4 text-[12px] font-bold uppercase tracking-wider min-w-[220px]">Học sinh</th>
-                  <th className="px-4 py-4 text-[12px] font-bold uppercase tracking-wider min-w-[380px]">Điểm danh</th>
-                  <th className="px-4 py-4 text-[12px] font-bold uppercase tracking-wider min-w-[200px]">Ghi chú</th>
-                  <th className="pl-4 pr-6 py-4 text-[12px] font-bold uppercase tracking-wider text-right w-24">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="text-[14px] divide-y divide-outline-variant/20">
-                {studentsList.map((student, index) => {
-                  const attendanceRecord = attendanceMap.get(student.id);
-                  const status = attendanceRecord?.status;
-                  const note = attendanceRecord?.note;
-
-                  return (
-                    <tr
-                      key={student.id}
-                      className={cn(
-                        "transition-colors hover:bg-surface-container-low/20",
-                        status === 'present' && "bg-green-50/2 dark:bg-green-950/1",
-                        status === 'absent' && "bg-rose-50/2 dark:bg-rose-950/1",
-                        status === 'late' && "bg-amber-50/2 dark:bg-amber-950/1",
-                        (status === 'sick' || status === 'excused') && "bg-purple-50/2 dark:bg-purple-950/1"
-                      )}
-                    >
-                      <td className="pl-6 pr-4 py-3.5 text-center font-semibold text-on-surface-variant/70">
-                        {index + 1}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full overflow-hidden border border-outline-variant/45 shrink-0 bg-primary/5 flex items-center justify-center">
-                            {student.profile_image_url ? (
-                              <img src={student.profile_image_url} alt={student.full_name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-[12px] font-bold text-primary font-playfair">
-                                {getInitials(student.full_name)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="text-[14.5px] font-bold font-playfair text-on-surface truncate leading-tight" title={student.full_name}>
-                              {student.full_name}
-                            </h4>
-                            <p className="text-[10px] font-semibold text-on-surface-variant/60 uppercase tracking-widest mt-0.5 select-all">
-                              {student.student_code}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(student.id, 'present')}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
-                              status === 'present'
-                                ? "bg-green-600 border-green-600 text-white shadow-sm"
-                                : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
-                            )}
-                          >
-                            Có mặt
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(student.id, 'absent')}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
-                              status === 'absent'
-                                ? "bg-rose-600 border-rose-600 text-white shadow-sm"
-                                : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
-                            )}
-                          >
-                            Vắng
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(student.id, 'late')}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
-                              status === 'late'
-                                ? "bg-amber-500 border-amber-500 text-white shadow-sm"
-                                : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
-                            )}
-                          >
-                            Đi trễ
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(student.id, 'excused')}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
-                              status === 'excused'
-                                ? "bg-purple-600 border-purple-600 text-white shadow-sm"
-                                : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
-                            )}
-                          >
-                            Có phép
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(student.id, 'sick')}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer select-none",
-                              status === 'sick'
-                                ? "bg-violet-600 border-violet-600 text-white shadow-sm"
-                                : "bg-white border-outline-variant/40 text-on-surface-variant hover:bg-surface-container"
-                            )}
-                          >
-                            Bệnh
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {note ? (
-                          <div className="flex items-start gap-1.5 text-xs text-on-surface-variant max-w-[280px]" title={note}>
-                            <MessageSquare className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                            <span className="line-clamp-2 select-text">{note}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-on-surface-variant/40 italic select-none">Chưa có ghi chú</span>
-                        )}
-                      </td>
-                      <td className="pl-4 pr-6 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedStudentForNote(student);
-                            setTempNote(note || "");
-                            setIsNoteModalOpen(true);
-                          }}
-                          className="p-2 border border-outline-variant/40 rounded-xl hover:bg-surface-container transition-colors cursor-pointer"
-                          title="Thêm ghi chú"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-on-surface-variant" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table
+          className="rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden bg-surface-container-lowest"
+          columns={tableColumns}
+          data={studentsList}
+          rowKey={(row) => row.id}
+        />
       )}
 
       {/* Note Modal */}

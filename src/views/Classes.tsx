@@ -172,13 +172,18 @@ export function Classes() {
     });
   };
 
-  const getGradeLabel = (grade: string) => {
+  const getGradeBadge = (grade: string) => {
     switch (grade) {
-      case 'nha_tre': return 'Nhà trẻ';
-      case 'mam': return 'Mầm';
-      case 'choi': return 'Chồi';
-      case 'la': return 'Lá';
-      default: return grade;
+      case 'nha_tre': 
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-amber-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Khối Nhà trẻ</span>;
+      case 'mam': 
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-emerald-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Khối Mầm</span>;
+      case 'choi': 
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-sky-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Khối Chồi</span>;
+      case 'la': 
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-indigo-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Khối Lá</span>;
+      default: 
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-slate-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Khối {grade}</span>;
     }
   };
 
@@ -200,11 +205,7 @@ export function Classes() {
     {
       key: "grade_level",
       header: "Khối lớp",
-      render: (row: any) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-secondary-container/40 text-on-secondary-container">
-          Khối {getGradeLabel(row.grade_level)}
-        </span>
-      )
+      render: (row: any) => getGradeBadge(row.grade_level)
     },
     {
       key: "room_number",
@@ -267,12 +268,12 @@ export function Classes() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-6">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4">
       {/* Header section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Quản lý Lớp học</h2>
-          <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1">
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Quản lý Lớp học</h2>
+          <p className="text-[13px] md:text-[14px] text-on-surface-variant mt-1">
             Danh sách các lớp học, phân công giáo viên và quản lý học sinh theo lớp năm học {currentYearName}.
           </p>
         </div>
@@ -299,19 +300,16 @@ export function Classes() {
           <div className="flex-1 w-full space-y-6">
             
             {/* Filters */}
-            <div className="bg-surface-container-lowest p-5 rounded-[32px] border border-outline-variant/30 shadow-sm flex flex-wrap gap-4 items-end">
-              <div className="flex flex-col gap-2 w-full md:w-80">
-                <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Tìm kiếm</label>
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-                  <input
-                    type="text"
-                    placeholder="Tìm theo tên lớp, phòng học..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-                  />
-                </div>
+            <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap gap-3.5 items-center">
+              <div className="relative w-full md:w-80">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+                <input
+                  type="text"
+                  placeholder="Tìm theo tên lớp, phòng học..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
+                />
               </div>
 
               {/* View Mode Switcher Toggle */}
@@ -351,7 +349,7 @@ export function Classes() {
                 ))}
               </div>
             ) : filteredClasses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 border border-dashed border-outline-variant/60 rounded-[32px] bg-surface-container-low/10 bg-white">
+              <div className="flex flex-col items-center justify-center py-20 border border-dashed border-outline-variant/60 rounded-2xl bg-surface">
                 <Home className="w-10 h-10 text-on-surface-variant/40 mb-3" />
                 <span className="text-sm text-on-surface-variant font-bold">Không tìm thấy lớp học nào</span>
               </div>
@@ -366,20 +364,20 @@ export function Classes() {
                     <div
                       key={c.id}
                       onClick={() => handleOpenDetail(c.id)}
-                      className="bg-surface-container-lowest border border-outline-variant/30 rounded-[32px] p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between overflow-hidden cursor-pointer"
+                      className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between overflow-hidden cursor-pointer"
                     >
                       {/* Hover actions */}
-                      <div className="absolute top-4 right-4 flex gap-1 bg-white/85 dark:bg-slate-900/85 backdrop-blur-sm p-1 rounded-xl border border-outline-variant/30 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none" onClick={(e) => e.stopPropagation()}>
+                      <div className="absolute top-4 right-4 flex gap-1 bg-surface-container-highest dark:bg-slate-800 backdrop-blur-sm p-1 rounded-xl border border-outline-variant shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleOpenDetail(c.id)}
-                          className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg transition-colors cursor-pointer"
                           title="Xem chi tiết"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleEditClass(c)}
-                          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg transition-colors cursor-pointer"
                           title="Sửa lớp"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -389,7 +387,7 @@ export function Classes() {
                             setSelectedClass(c);
                             setIsDeleteDialogOpen(true);
                           }}
-                          className="p-1.5 text-error hover:bg-error/5 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
                           title="Xóa lớp"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -398,9 +396,7 @@ export function Classes() {
 
                       <div className="flex flex-col gap-3">
                         <div>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-secondary-container/40 text-on-secondary-container border border-outline-variant/20">
-                            Khối {getGradeLabel(c.grade_level)}
-                          </span>
+                          {getGradeBadge(c.grade_level)}
                           <h3 className="font-bold font-playfair text-[18px] text-on-surface mt-2 italic">{c.name}</h3>
                           <p className="text-xs text-on-surface-variant font-medium mt-1">
                             Phòng: <strong>{c.room_number || "---"}</strong> | Sức chứa: <strong>{c.capacity}</strong> trẻ
@@ -425,21 +421,20 @@ export function Classes() {
                 })}
               </div>
             ) : (
-              <div className="bg-white rounded-[32px] border border-outline-variant/30 p-6 shadow-sm overflow-hidden">
-                <Table 
-                  columns={tableColumns} 
-                  data={filteredClasses} 
-                  rowKey={(row) => row.id}
-                  onRowClick={(row) => handleOpenDetail(row.id)}
-                  emptyTitle="Không tìm thấy lớp học"
-                  emptyDescription="Không có lớp học nào khớp với bộ lọc."
-                />
-              </div>
+              <Table 
+                className="rounded-2xl border border-outline-variant/30 shadow-sm bg-surface overflow-hidden"
+                columns={tableColumns} 
+                data={filteredClasses} 
+                rowKey={(row) => row.id}
+                onRowClick={(row) => handleOpenDetail(row.id)}
+                emptyTitle="Không tìm thấy lớp học"
+                emptyDescription="Không có lớp học nào khớp với bộ lọc."
+              />
             )}
           </div>
 
           {/* Waitlist / Unassigned Students panel (col 4/1 flex) */}
-          <div className="w-full lg:w-80 shrink-0 bg-white border border-outline-variant/40 rounded-[32px] overflow-hidden shadow-sm animate-in fade-in duration-300">
+          <div className="w-full lg:w-80 shrink-0 bg-surface border border-outline-variant/40 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
             <button
               type="button"
               onClick={() => setIsUnassignedOpen(!isUnassignedOpen)}
@@ -452,7 +447,7 @@ export function Classes() {
             </button>
 
             {isUnassignedOpen && (
-              <div className="p-4 space-y-2.5 max-h-[450px] overflow-y-auto bg-white/50">
+              <div className="p-4 space-y-2.5 max-h-[450px] overflow-y-auto bg-surface/50">
                 {isLoadingUnassigned ? (
                   <div className="space-y-2 py-2">
                     {[1, 2].map(i => (
@@ -480,7 +475,7 @@ export function Classes() {
                                 handleQuickAssign(student, e.target.value, selectedC?.name || "");
                               }
                             }}
-                            className="flex-1 bg-white border border-outline-variant/50 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:border-primary cursor-pointer font-bold text-on-surface-variant"
+                            className="flex-1 bg-surface border border-outline-variant/50 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:border-primary cursor-pointer font-bold text-on-surface-variant"
                           >
                             <option value="">-- Xếp nhanh vào lớp --</option>
                             {classes.map(c => (

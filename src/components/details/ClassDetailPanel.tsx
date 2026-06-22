@@ -1214,7 +1214,13 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
                 { value: '', label: '-- Chọn lớp học mới --' },
                 ...classesList
                   .filter((c) => c.id !== classId)
-                  .map((c) => ({ value: c.id, label: `${c.name} (Khối ${getGradeLabel(c.grade_level)})` })),
+                  .map((c) => {
+                    const gradeLabel = getGradeLabel(c.grade_level);
+                    return {
+                      value: c.id,
+                      label: gradeLabel ? `${c.name} (Khối ${gradeLabel})` : c.name,
+                    };
+                  }),
               ]}
               required
             />
@@ -1266,7 +1272,13 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
                 { value: '', label: '-- Chọn lớp học mới --' },
                 ...classesList
                   .filter((c) => c.id !== classId)
-                  .map((c) => ({ value: c.id, label: `${c.name} (Khối ${getGradeLabel(c.grade_level)})` })),
+                  .map((c) => {
+                    const gradeLabel = getGradeLabel(c.grade_level);
+                    return {
+                      value: c.id,
+                      label: gradeLabel ? `${c.name} (Khối ${gradeLabel})` : c.name,
+                    };
+                  }),
               ]}
               required
             />

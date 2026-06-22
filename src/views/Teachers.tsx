@@ -15,14 +15,23 @@ import {
   Edit2,
   Trash2,
   Eye,
-  User
+  User,
+  FileSpreadsheet
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { Table, type TableColumn, ConfirmDialog, useSlidePanel } from "../components/ui";
+import { 
+  Table, 
+  type TableColumn, 
+  ConfirmDialog, 
+  useSlidePanel,
+  ExcelImportModal 
+} from "../components/ui";
 import { TeacherForm } from "../components/forms/TeacherForm";
 import { TeacherDetailPanel } from "../components/details/TeacherDetailPanel";
 import { toast } from "../stores/toastStore";
+import { exportToExcel, parseExcelDate } from "../lib/excelHelper";
+import { useAuthStore } from "../stores/authStore";
 
 // Helper function to compare Vietnamese names alphabetically by first name
 const compareVietnameseNames = (nameA: string, nameB: string) => {
@@ -58,6 +67,7 @@ const getTeacherTitle = (email: string, role: string) => {
 export function Teachers() {
   const queryClient = useQueryClient();
   const { openPanel } = useSlidePanel();
+  const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   
   // View mode: grid vs table
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -75,6 +85,9 @@ export function Teachers() {
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [page, setPage] = useState(1);
   const pageSize = 100;
+
+  // Import Excel state
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -235,20 +248,20 @@ export function Teachers() {
     switch (row.role) {
       case 'admin':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] bg-red-50 text-red-700 border border-red-200 font-bold tracking-wide">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-rose-600 text-white font-extrabold tracking-wide shadow-2xs select-none">
             {title}
           </span>
         );
       case 'staff':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] bg-purple-50 text-purple-700 border border-purple-200 font-bold tracking-wide">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-purple-600 text-white font-extrabold tracking-wide shadow-2xs select-none">
             {title}
           </span>
         );
       case 'teacher':
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] bg-blue-50 text-blue-700 border border-blue-200 font-bold tracking-wide">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-sky-600 text-white font-extrabold tracking-wide shadow-2xs select-none">
             {title}
           </span>
         );
@@ -305,6 +318,160 @@ export function Teachers() {
       setIsDeleting(false);
       setSelectedTeacher(null);
     }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const filters: Record<string, any> = {};
+      if (selectedStatus !== "all") {
+        filters.is_active = selectedStatus === "active";
+      }
+      if (selectedRole !== "all") {
+        filters.role = selectedRole;
+      }
+      if (selectedClassId !== "all") {
+        const { data: ctData } = await api.getAll(
+          'class_teachers', 
+          { page: 1, pageSize: 1000 }, 
+          { filters: { class_id: selectedClassId } }
+        );
+        const teacherIds = ctData?.data?.map((ct: any) => ct.teacher_id) || [];
+        
+        if (teacherIds.length > 0) {
+          filters.id = `in.(${teacherIds.join(',')})`;
+        } else {
+          toast.error("Không có nhân sự nào để xuất");
+          return;
+        }
+      }
+
+      const res = await api.getAll(
+        'users',
+        { page: 1, pageSize: 1000, sortBy: 'full_name', sortOrder: 'asc' },
+        {
+          search: debouncedSearch || undefined,
+          filters: Object.keys(filters).length > 0 ? filters : undefined
+        },
+        '*, class_teachers(classes(name))'
+      );
+
+      const exportData = (res.data?.data || []).map((row: any) => {
+        const classes = row.class_teachers?.map((ct: any) => ct.classes?.name).filter(Boolean).join(', ') || 'Chưa phân công';
+        let roleName = 'Nhân viên';
+        if (row.role === 'admin') roleName = 'Ban giám hiệu';
+        else if (row.role === 'teacher') roleName = 'Giáo viên';
+
+        return {
+          full_name: row.full_name,
+          email: row.email,
+          phone: row.phone || '',
+          role: roleName,
+          job_title: row.job_title || '',
+          date_of_birth: row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString('vi-VN') : '',
+          address: row.address || '',
+          status: row.is_active ? 'Hoạt động' : 'Tạm nghỉ',
+          classes: classes
+        };
+      });
+
+      const columns = [
+        { key: 'full_name', label: 'Họ tên' },
+        { key: 'email', label: 'Email' },
+        { key: 'phone', label: 'Số điện thoại' },
+        { key: 'role', label: 'Vai trò' },
+        { key: 'job_title', label: 'Chức vụ' },
+        { key: 'date_of_birth', label: 'Ngày sinh' },
+        { key: 'address', label: 'Địa chỉ' },
+        { key: 'status', label: 'Trạng thái hoạt động' },
+        { key: 'classes', label: 'Lớp phụ trách' }
+      ];
+
+      exportToExcel(exportData, columns, 'Danh_Sach_Giao_Vien_Nhan_Vien', 'Cán bộ giáo viên');
+      toast.success("Đã xuất Excel danh sách giáo viên!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Có lỗi xảy ra khi xuất Excel: " + err.message);
+    }
+  };
+
+  const handleImportExcel = async (rows: any[]) => {
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const lineNum = i + 2;
+
+      const fullName = row['Họ tên'];
+      const email = row['Email'];
+      if (!fullName || !email) {
+        errorCount++;
+        errors.push(`Dòng ${lineNum}: Thiếu Họ tên hoặc Email (bắt buộc).`);
+        continue;
+      }
+
+      const phone = row['Số điện thoại'] || row['SĐT'];
+      const rawRole = row['Vai trò'];
+      const jobTitle = row['Chức vụ'] || row['Chức danh'];
+      const rawDob = row['Ngày sinh'];
+      const address = row['Địa chỉ'];
+      const rawStatus = row['Trạng thái hoạt động'] || row['Trạng thái'];
+
+      const dob = rawDob ? parseExcelDate(rawDob) : null;
+      
+      // Map vai trò
+      let role: 'admin' | 'teacher' | 'staff' = 'teacher';
+      if (rawRole) {
+        const roleLower = String(rawRole).toLowerCase().trim();
+        if (roleLower === 'admin' || roleLower.includes('quản trị') || roleLower.includes('giám hiệu')) {
+          role = 'admin';
+        } else if (roleLower === 'staff' || roleLower.includes('nhân viên') || roleLower.includes('bếp') || roleLower.includes('bảo vệ')) {
+          role = 'staff';
+        }
+      }
+
+      // Map hoạt động
+      let isActive = true;
+      if (rawStatus) {
+        const statusLower = String(rawStatus).toLowerCase().trim();
+        if (statusLower.includes('nghỉ') || statusLower.includes('tạm nghỉ') || statusLower.includes('không') || statusLower === 'false') {
+          isActive = false;
+        }
+      }
+
+      try {
+        const teacherId = crypto.randomUUID();
+
+        const userPayload = {
+          id: teacherId,
+          school_id: schoolId,
+          email: email.trim().toLowerCase(),
+          full_name: fullName.trim(),
+          role: role,
+          phone: phone ? String(phone).trim() : null,
+          avatar_url: null,
+          job_title: jobTitle ? jobTitle.trim() : (role === 'teacher' ? 'Giáo viên' : 'Nhân viên'),
+          date_of_birth: dob,
+          address: address ? address.trim() : null,
+          is_active: isActive,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const res = await api.create('users', userPayload);
+        if (res.error) throw new Error(res.error);
+
+        successCount++;
+      } catch (err: any) {
+        console.error(err);
+        errorCount++;
+        errors.push(`Dòng ${lineNum} (${fullName}): ${err.message || 'Lỗi hệ thống'}`);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['teachers-list'] });
+    return { successCount, errorCount, errors };
   };
 
   // SlidePanel handlers
@@ -444,11 +611,25 @@ export function Teachers() {
       {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách Nhân sự</h2>
-          <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1">Quản lý đội ngũ giáo viên, ban giám hiệu và nhân viên hành chính.</p>
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">DANH SÁCH CÁN BỘ, GIÁO VIÊN, NHÂN VIÊN</h2>
         </div>
         
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleExportExcel}
+            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            Xuất Excel
+          </button>
+          <button 
+            onClick={() => setIsImportOpen(true)}
+            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+          >
+            <Plus className="w-4 h-4 text-primary" />
+            Nhập Excel
+          </button>
+
           {/* View Mode Switcher Toggle */}
           <div className="bg-surface-container rounded-xl p-1 flex items-center border border-outline-variant/30">
             <button 
@@ -488,70 +669,58 @@ export function Teachers() {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-surface-container-lowest p-5 rounded-[32px] border border-outline-variant/30 shadow-sm flex flex-wrap gap-4 items-end mb-8">
+      <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap gap-3.5 items-center mb-5">
         {/* Search Input */}
-        <div className="flex flex-col gap-2 w-full md:w-64">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Tìm kiếm</label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-            <input 
-              type="text" 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm theo họ tên, email..." 
-              className="w-full pl-10 pr-4 py-2.5 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-            />
-          </div>
+        <div className="relative w-full md:w-64">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+          <input 
+            type="text" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm theo họ tên, email..." 
+            className="w-full pl-10 pr-4 py-2 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
+          />
         </div>
 
         {/* Role Filter */}
-        <div className="flex flex-col gap-2 w-44">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Chức vụ</label>
-          <select 
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-          >
-            <option value="all">Tất cả chức vụ</option>
-            <option value="bgh">Ban Giám hiệu</option>
-            <option value="teacher">Giáo viên</option>
-            <option value="kitchen">Nhân viên: Tổ bếp</option>
-            <option value="maintenance">Kỹ thuật, bảo vệ, lao công</option>
-          </select>
-        </div>
+        <select 
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+        >
+          <option value="all">Tất cả chức vụ</option>
+          <option value="bgh">Ban Giám hiệu</option>
+          <option value="teacher">Giáo viên</option>
+          <option value="kitchen">Nhân viên: Tổ bếp</option>
+          <option value="maintenance">Kỹ thuật, bảo vệ, lao công</option>
+        </select>
 
         {/* Class Filter */}
-        <div className="flex flex-col gap-2 w-44">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Lớp phụ trách</label>
-          <select 
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-          >
-            <option value="all">Tất cả lớp</option>
-            {classesList.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
+        <select 
+          value={selectedClassId}
+          onChange={(e) => setSelectedClassId(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+        >
+          <option value="all">Tất cả lớp</option>
+          {classesList.map((c: any) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
 
         {/* Status Filter */}
-        <div className="flex flex-col gap-2 w-40">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Trạng thái</label>
-          <select 
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang làm việc</option>
-            <option value="inactive">Đã nghỉ việc / Nghỉ phép</option>
-          </select>
-        </div>
+        <select 
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+        >
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang làm việc</option>
+          <option value="inactive">Đã nghỉ việc / Nghỉ phép</option>
+        </select>
 
         <button 
           onClick={handleResetFilters}
-          className="px-5 py-2.5 text-primary text-[14px] font-semibold hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer ml-auto"
+          className="px-4 py-2 text-primary text-[14px] font-semibold hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer ml-auto"
         >
           Xóa bộ lọc
         </button>
@@ -573,9 +742,12 @@ export function Teachers() {
             ))}
           </div>
         ) : (
-          <div className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 p-6 shadow-sm">
-            <Table columns={tableColumns} data={[]} loading={true} />
-          </div>
+          <Table 
+            className="rounded-[32px] border border-outline-variant/30 shadow-sm bg-surface-container-lowest overflow-hidden" 
+            columns={tableColumns} 
+            data={[]} 
+            loading={true} 
+          />
         )
       ) : isError ? (
         // Error State
@@ -741,16 +913,15 @@ export function Teachers() {
             </div>
           ) : (
             // Table View
-            <div className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 p-6 shadow-sm overflow-hidden">
-              <Table 
-                columns={tableColumns} 
-                data={teachersData} 
-                rowKey={(row) => row.id}
-                onRowClick={(row) => handleOpenDetail(row.id)}
-                emptyTitle="Không tìm thấy nhân sự"
-                emptyDescription="Không có nhân sự nào khớp với bộ lọc."
-              />
-            </div>
+            <Table 
+              className="rounded-[32px] border border-outline-variant/30 shadow-sm bg-surface-container-lowest overflow-hidden"
+              columns={tableColumns} 
+              data={teachersData} 
+              rowKey={(row) => row.id}
+              onRowClick={(row) => handleOpenDetail(row.id)}
+              emptyTitle="Không tìm thấy nhân sự"
+              emptyDescription="Không có nhân sự nào khớp với bộ lọc."
+            />
           )}
 
           {/* Pagination Controls */}
@@ -794,6 +965,18 @@ export function Teachers() {
         cancelText="Hủy"
         variant="danger"
         isConfirming={isDeleting}
+      />
+
+      {/* Modal Import Excel */}
+      <ExcelImportModal
+        open={isImportOpen}
+        onClose={() => {
+          setIsImportOpen(false);
+          refetch();
+        }}
+        title="Nhập danh sách giáo viên từ Excel"
+        templateType="teachers"
+        onImport={handleImportExcel}
       />
     </div>
   );

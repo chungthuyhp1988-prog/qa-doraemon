@@ -189,8 +189,8 @@ export function Health() {
           <span className={cn(
             "inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border uppercase tracking-wider",
             val === 'Bình thường' 
-              ? "bg-green-50 border-green-200 text-green-700" 
-              : "bg-amber-50 border-amber-200 text-amber-700"
+              ? "bg-emerald-600 text-white font-extrabold px-2 py-0.5 rounded text-[11px] tracking-wide shadow-2xs select-none" 
+              : "bg-amber-500 text-white font-extrabold px-2 py-0.5 rounded text-[11px] tracking-wide shadow-2xs select-none"
           )}>
             {val}
           </span>
@@ -203,8 +203,8 @@ export function Health() {
       render: (row: any) => {
         const hasWarning = row.allergies || row.medical_notes;
         return hasWarning ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] bg-red-50 text-red-600 border border-red-200 font-semibold max-w-[150px] truncate" title={row.allergies || row.medical_notes}>
-            <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] bg-rose-600 text-white font-extrabold tracking-wide shadow-2xs max-w-[150px] truncate select-none" title={row.allergies || row.medical_notes}>
+            <ShieldAlert className="w-3.5 h-3.5 text-white shrink-0" />
             {row.allergies || row.medical_notes}
           </span>
         ) : <span className="text-on-surface-variant/30 italic text-xs font-semibold">Bình thường</span>;
@@ -227,12 +227,12 @@ export function Health() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-6">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4">
       {/* Header section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Sức khỏe & Phát triển</h2>
-          <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1 font-inter">
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Sức khỏe & Phát triển</h2>
+          <p className="text-[13px] md:text-[14px] text-on-surface-variant mt-1 font-inter">
             Theo dõi chiều cao, cân nặng, lịch sử tiêm chủng và ghi chú y tế của trẻ theo định kỳ.
           </p>
         </div>
@@ -246,51 +246,45 @@ export function Health() {
       </div>
 
       {/* Filters */}
-      <div className="bg-surface-container-lowest p-5 rounded-[32px] border border-outline-variant/30 shadow-sm flex flex-wrap gap-4 items-end">
-        <div className="flex flex-col gap-2 w-full md:w-80">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant font-semibold">Tìm học sinh</label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên học sinh..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-            />
-          </div>
+      <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap gap-3.5 items-center">
+        {/* Search Input */}
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+          <input
+            type="text"
+            placeholder="Tìm theo tên học sinh..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
+          />
         </div>
 
         {/* Class Filter */}
-        <div className="flex flex-col gap-2 w-44">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant font-semibold">Lớp học</label>
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-all cursor-pointer font-bold text-on-surface-variant"
-          >
-            <option value="all">Tất cả lớp</option>
-            {classesList.map((c) => (
-              <option key={c.id} value={c.id}>
-                Lớp {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={selectedClassId}
+          onChange={(e) => setSelectedClassId(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-all cursor-pointer font-bold text-on-surface-variant"
+        >
+          <option value="all">Tất cả lớp</option>
+          {classesList.map((c) => (
+            <option key={c.id} value={c.id}>
+              Lớp {c.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Main Table view */}
-      <div className="bg-white rounded-[32px] border border-outline-variant/30 p-6 shadow-sm overflow-hidden">
-        <Table 
-          columns={tableColumns} 
-          data={students} 
-          rowKey={(row) => row.id}
-          onRowClick={(row) => handleOpenDetail(row.id)}
-          loading={isLoadingStudents}
-          emptyTitle="Không tìm thấy dữ liệu sức khỏe"
-          emptyDescription="Không có dữ liệu học sinh nào khớp với bộ lọc lớp học hoặc từ khóa tìm kiếm."
-        />
-      </div>
+      <Table 
+        className="rounded-2xl border border-outline-variant/30 shadow-sm bg-surface overflow-hidden"
+        columns={tableColumns} 
+        data={students} 
+        rowKey={(row) => row.id}
+        onRowClick={(row) => handleOpenDetail(row.id)}
+        loading={isLoadingStudents}
+        emptyTitle="Không tìm thấy dữ liệu sức khỏe"
+        emptyDescription="Không có dữ liệu học sinh nào khớp với bộ lọc lớp học hoặc từ khóa tìm kiếm."
+      />
     </div>
   );
 }

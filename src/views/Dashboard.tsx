@@ -187,7 +187,7 @@ export function Dashboard() {
     <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12">
       {/* Dashboard Welcome Header */}
       <div className="mb-8">
-        <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface tracking-[-0.02em] leading-tight">
+        <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface tracking-[-0.02em] leading-tight">
           Tổng quan hôm nay
         </h2>
         <p className="text-[14px] md:text-[16px] text-on-surface-variant font-medium mt-1 font-inter">

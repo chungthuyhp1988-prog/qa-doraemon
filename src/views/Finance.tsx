@@ -304,27 +304,27 @@ export function Finance() {
     switch (status) {
       case 'paid':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-200 text-[12px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Đã đóng
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-emerald-600 text-white font-extrabold tracking-wide shadow-2xs select-none">
+            Đã đóng
           </span>
         );
       case 'partial':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[12px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Đóng một phần
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-sky-600 text-white font-extrabold tracking-wide shadow-2xs select-none">
+            Đóng một phần
           </span>
         );
       case 'overdue':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200 text-[12px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span> Quá hạn
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-rose-600 text-white font-extrabold tracking-wide shadow-2xs select-none">
+            Quá hạn
           </span>
         );
       case 'pending':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[12px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Chờ thanh toán
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-amber-500 text-white font-extrabold tracking-wide shadow-2xs select-none">
+            Chờ thanh toán
           </span>
         );
     }
@@ -504,7 +504,7 @@ export function Finance() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
             Quản lý Học phí
           </h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1 font-inter">

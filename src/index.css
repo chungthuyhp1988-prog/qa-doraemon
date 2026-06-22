@@ -13,7 +13,7 @@
   --color-surface: #ffffff;
   --color-on-surface: #0f172a;
   --color-surface-variant: #f1f5f9;
-  --color-on-surface-variant: #64748b;
+  --color-on-surface-variant: #475569;
   
   --color-surface-container-lowest: #ffffff;
   --color-surface-container-low: #f8fafc;
@@ -34,12 +34,12 @@
   --color-error-container: #fee2e2;
   --color-on-error-container: #b91c1c;
 
-  --spacing-container-padding-desktop: 32px;
+  --spacing-container-padding-desktop: 24px;
   --spacing-container-padding-mobile: 16px;
   --spacing-topbar-height: 72px;
   --spacing-sidebar-width: 280px;
   --spacing-gutter: 24px;
-  --spacing-margin-desktop: 32px;
+  --spacing-margin-desktop: 24px;
   --spacing-margin-mobile: 16px;
 
   --font-playfair: "Playfair Display", ui-serif, Georgia, serif;
@@ -84,7 +84,7 @@
   --color-surface: #1e293b;
   --color-on-surface: #f8fafc;
   --color-surface-variant: #334155;
-  --color-on-surface-variant: #94a3b8;
+  --color-on-surface-variant: #cbd5e1;
   
   --color-surface-container-lowest: #0f172a;
   --color-surface-container-low: #1e293b;
@@ -414,5 +414,58 @@ body.slide-panel-open {
     animation-iteration-count: 1      !important;
     transition-duration:       0.01ms !important;
     scroll-behavior:           auto   !important;
+  }
+}
+
+/* ── Dark Mode UI/UX Pro Max Optimization ─────────────────── */
+.dark {
+  /* Ghi đè bắt buộc cho tất cả các phần tử nền trắng cứng trong Dark Mode */
+  .bg-white,
+  div.bg-white,
+  section.bg-white,
+  article.bg-white {
+    background-color: var(--color-surface) !important;
+  }
+
+  .bg-white\/50 {
+    background-color: rgba(30, 41, 59, 0.5) !important; /* bg-surface với 50% opacity */
+  }
+
+  .bg-white\/70 {
+    background-color: rgba(30, 41, 59, 0.7) !important;
+  }
+
+  /* Ghi đè các nền bảng màu xám/sáng cứng */
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-slate-200,
+  tr.bg-slate-50,
+  tr.bg-slate-100 {
+    background-color: var(--color-surface-container-low) !important;
+  }
+
+  tr.hover\:bg-slate-50\/20:hover,
+  tr:hover {
+    background-color: rgba(51, 65, 85, 0.3) !important; /* hover light trong dark mode */
+  }
+
+  /* Fix các native picker icon trong Chrome/Edge */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) !important;
+    opacity: 0.7;
+  }
+
+  /* Định dạng lại select và option */
+  select.bg-white,
+  input.bg-white,
+  button.bg-white {
+    background-color: var(--color-surface-container) !important;
+    color: var(--color-on-surface) !important;
+  }
+
+  option {
+    background-color: var(--color-surface-container-low) !important;
+    color: var(--color-on-surface) !important;
   }
 }

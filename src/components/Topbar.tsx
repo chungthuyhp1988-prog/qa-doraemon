@@ -211,9 +211,8 @@ export function Topbar({
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Breadcrumb + Title */}
-        <div className="hidden sm:flex flex-col min-w-0">
-          {/* Breadcrumb */}
+        {/* Breadcrumb */}
+        <div className="hidden sm:flex items-center min-w-0">
           <div className="flex items-center gap-1 text-[12px] text-on-surface-variant">
             <span className="hover:text-on-surface transition-colors cursor-pointer">
               Trang chủ
@@ -233,11 +232,6 @@ export function Topbar({
               </span>
             ))}
           </div>
-
-          {/* Page title */}
-          <h2 className="text-[18px] font-bold font-playfair text-on-surface leading-snug truncate">
-            {pageTitle}
-          </h2>
         </div>
 
         {/* Mobile page title */}
@@ -261,7 +255,7 @@ export function Topbar({
             )}
             {yearsList.map((y: any) => (
               <option key={y.id} value={y.id} className="text-on-surface bg-surface-container-lowest font-semibold">
-                Năm học {y.name}
+                {y.name}
               </option>
             ))}
           </select>

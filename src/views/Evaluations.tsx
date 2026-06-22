@@ -212,11 +212,11 @@ export function Evaluations() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-6">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4">
       {/* Header section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Đánh giá Phát triển Trẻ</h2>
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Đánh giá Phát triển Trẻ</h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1 font-inter">
             Lập phiếu đánh giá định kỳ cho học sinh trên 5 lĩnh vực năng lực cốt lõi theo tiêu chuẩn của Bộ Giáo dục.
           </p>
@@ -231,51 +231,45 @@ export function Evaluations() {
       </div>
 
       {/* Filters */}
-      <div className="bg-surface-container-lowest p-5 rounded-[32px] border border-outline-variant/30 shadow-sm flex flex-wrap gap-4 items-end">
-        <div className="flex flex-col gap-2 w-full md:w-80">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant font-semibold">Tìm học sinh</label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên học sinh..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-            />
-          </div>
+      <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap gap-3.5 items-center">
+        {/* Search Input */}
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+          <input
+            type="text"
+            placeholder="Tìm theo tên học sinh..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
+          />
         </div>
 
         {/* Class Filter */}
-        <div className="flex flex-col gap-2 w-44">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant font-semibold">Lớp học</label>
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-all cursor-pointer font-bold text-on-surface-variant"
-          >
-            <option value="all">Tất cả lớp</option>
-            {classesList.map((c) => (
-              <option key={c.id} value={c.id}>
-                Lớp {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={selectedClassId}
+          onChange={(e) => setSelectedClassId(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-all cursor-pointer font-bold text-on-surface-variant"
+        >
+          <option value="all">Tất cả lớp</option>
+          {classesList.map((c: any) => (
+            <option key={c.id} value={c.id}>
+              Lớp {c.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Main Table view */}
-      <div className="bg-white rounded-[32px] border border-outline-variant/30 p-6 shadow-sm overflow-hidden">
-        <Table 
-          columns={tableColumns} 
-          data={students} 
-          rowKey={(row) => row.id}
-          onRowClick={(row) => handleOpenDetail(row.id)}
-          loading={isLoadingStudents}
-          emptyTitle="Không tìm thấy dữ liệu đánh giá"
-          emptyDescription="Không có dữ liệu học sinh nào khớp với bộ lọc lớp học hoặc từ khóa tìm kiếm."
-        />
-      </div>
+      <Table 
+        className="rounded-2xl border border-outline-variant/30 shadow-sm bg-white overflow-hidden"
+        columns={tableColumns} 
+        data={students} 
+        rowKey={(row) => row.id}
+        onRowClick={(row) => handleOpenDetail(row.id)}
+        loading={isLoadingStudents}
+        emptyTitle="Không tìm thấy dữ liệu đánh giá"
+        emptyDescription="Không có dữ liệu học sinh nào khớp với bộ lọc lớp học hoặc từ khóa tìm kiếm."
+      />
     </div>
   );
 }

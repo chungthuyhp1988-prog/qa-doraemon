@@ -24,7 +24,7 @@ import { supabase, uploadFile } from "../lib/supabase";
 import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
-import { Input, Button, Tabs, Modal } from "../components/ui";
+import { Input, Button, Tabs, Modal, Table, type TableColumn } from "../components/ui";
 import { Avatar } from "../components/ui/Avatar";
 
 // Validation Schemas
@@ -592,72 +592,147 @@ export function Settings() {
                 </button>
               </div>
 
+              {/* Define Academic Years Table Columns */}
+              {(() => {
+                const yearTableColumns: TableColumn<any>[] = [
+                  {
+                    key: "name",
+                    header: "Tên năm học",
+                    render: (row: any) => (
+                      <span className="font-bold text-on-surface">
+                        Năm học {row.name}
+                      </span>
+                    )
+                  },
+                  {
+                    key: "start_date",
+                    header: "Ngày bắt đầu",
+                    render: (row: any) => (
+                      <span className="text-xs text-on-surface-variant">
+                        {new Date(row.start_date).toLocaleDateString('vi-VN')}
+                      </span>
+                    )
+                  },
+                  {
+                    key: "end_date",
+                    header: "Ngày kết thúc",
+                    render: (row: any) => (
+                      <span className="text-xs text-on-surface-variant">
+                        {new Date(row.end_date).toLocaleDateString('vi-VN')}
+                      </span>
+                    )
+                  },
+                  {
+                    key: "status",
+                    header: "Trạng thái",
+                    render: (row: any) => row.is_current ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success-container/20 text-success border border-success/30 select-none">
+                        <Check className="w-3.5 h-3.5" />
+                        Hiện tại
+                      </span>
+                    ) : (
+                      <span className="text-xs text-on-surface-variant/60 font-medium italic select-none">
+                        Lịch sử / Chờ
+                      </span>
+                    )
+                  },
+                  {
+                    key: "actions",
+                    header: "Thao tác",
+                    align: "right",
+                    render: (row: any) => row.is_current ? (
+                      <span className="text-xs text-success/80 font-bold flex items-center gap-1 justify-end select-none">
+                        <Clock className="w-3.5 h-3.5" />
+                        Đang chạy
+                      </span>
+                    ) : (
+                      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleSetCurrentYear(row)}
+                          className="inline-flex items-center px-3 py-1.5 bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface rounded-xl text-xs font-semibold border border-outline-variant/40 transition-all cursor-pointer"
+                        >
+                          Kích hoạt
+                        </button>
+                      </div>
+                    )
+                  }
+                ];
+                return null; // logic container only
+              })()}
+
               {isLoadingYears ? (
                 <div className="space-y-2 animate-pulse">
                   <div className="h-12 bg-surface-container-low rounded-xl" />
                   <div className="h-12 bg-surface-container-low rounded-xl" />
                 </div>
               ) : (
-                <div className="border border-outline-variant/30 rounded-2xl overflow-hidden">
-                  <table className="w-full text-left text-sm border-collapse bg-white">
-                    <thead>
-                      <tr className="bg-surface-container-low border-b border-outline-variant/30">
-                        <th className="px-4 py-3 font-semibold text-on-surface-variant text-xs">Tên năm học</th>
-                        <th className="px-4 py-3 font-semibold text-on-surface-variant text-xs">Ngày bắt đầu</th>
-                        <th className="px-4 py-3 font-semibold text-on-surface-variant text-xs">Ngày kết thúc</th>
-                        <th className="px-4 py-3 font-semibold text-on-surface-variant text-xs">Trạng thái</th>
-                        <th className="px-4 py-3 font-semibold text-on-surface-variant text-xs text-right">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-outline-variant/20">
-                      {academicYears.map((year: any) => {
-                        const isCurrent = year.is_current;
-                        const isSelectedInContext = selectedAcademicYearId === year.id;
-                        
-                        return (
-                          <tr key={year.id} className="hover:bg-surface-container-lowest/50 transition-all">
-                            <td className="px-4 py-3 font-bold text-on-surface">
-                              Năm học {year.name}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-on-surface-variant">
-                              {new Date(year.start_date).toLocaleDateString('vi-VN')}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-on-surface-variant">
-                              {new Date(year.end_date).toLocaleDateString('vi-VN')}
-                            </td>
-                            <td className="px-4 py-3">
-                              {isCurrent ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success-container/20 text-success border border-success/30">
-                                  <Check className="w-3.5 h-3.5" />
-                                  Hiện tại
-                                </span>
-                              ) : (
-                                <span className="text-xs text-on-surface-variant/60 font-medium italic">
-                                  Lịch sử / Chờ
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {!isCurrent ? (
-                                <button
-                                  onClick={() => handleSetCurrentYear(year)}
-                                  className="inline-flex items-center px-3 py-1.5 bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface rounded-xl text-xs font-semibold border border-outline-variant/40 transition-all cursor-pointer"
-                                >
-                                  Kích hoạt
-                                </button>
-                              ) : (
-                                <span className="text-xs text-success/80 font-bold flex items-center gap-1 justify-end">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  Đang chạy
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <Table
+                  className="rounded-2xl border border-outline-variant/30 overflow-hidden bg-white"
+                  columns={[
+                    {
+                      key: "name",
+                      header: "Tên năm học",
+                      render: (row: any) => (
+                        <span className="font-bold text-on-surface">
+                          Năm học {row.name}
+                        </span>
+                      )
+                    },
+                    {
+                      key: "start_date",
+                      header: "Ngày bắt đầu",
+                      render: (row: any) => (
+                        <span className="text-xs text-on-surface-variant">
+                          {new Date(row.start_date).toLocaleDateString('vi-VN')}
+                        </span>
+                      )
+                    },
+                    {
+                      key: "end_date",
+                      header: "Ngày kết thúc",
+                      render: (row: any) => (
+                        <span className="text-xs text-on-surface-variant">
+                          {new Date(row.end_date).toLocaleDateString('vi-VN')}
+                        </span>
+                      )
+                    },
+                    {
+                      key: "status",
+                      header: "Trạng thái",
+                      render: (row: any) => row.is_current ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white font-extrabold shadow-2xs select-none">
+                          Hiện tại
+                        </span>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant/60 font-medium italic select-none">
+                          Lịch sử / Chờ
+                        </span>
+                      )
+                    },
+                    {
+                      key: "actions",
+                      header: "Thao tác",
+                      align: "right",
+                      render: (row: any) => row.is_current ? (
+                        <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 justify-end select-none">
+                          <Clock className="w-3.5 h-3.5" />
+                          Đang chạy
+                        </span>
+                      ) : (
+                        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleSetCurrentYear(row)}
+                            className="inline-flex items-center px-3 py-1.5 bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface rounded-xl text-xs font-semibold border border-outline-variant/40 transition-all cursor-pointer"
+                          >
+                            Kích hoạt
+                          </button>
+                        </div>
+                      )
+                    }
+                  ]}
+                  data={academicYears}
+                  rowKey={(row) => row.id}
+                />
               )}
             </div>
           )}

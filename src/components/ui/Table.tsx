@@ -118,16 +118,16 @@ export function Table<T>({
   return (
     <div
       className={cn(
-        "w-full overflow-x-auto rounded-xl border border-outline-variant/60 bg-surface",
+        "w-full overflow-x-auto max-h-[600px] overflow-y-auto relative rounded-xl border border-outline-variant/60 bg-surface",
         className
       )}
     >
       <table className="w-full border-collapse min-w-[600px]">
         {/* ── Head ─────────────────────────── */}
         <thead>
-          <tr className="bg-surface-container/60">
+          <tr className="bg-surface-container">
             {selectable && (
-              <th className="w-12 px-4 py-3">
+              <th className="w-12 px-4 py-3 sticky top-0 z-10 bg-surface-container shadow-[0_1px_0_0_var(--color-outline-variant)]">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -142,7 +142,7 @@ export function Table<T>({
                 key={col.key}
                 style={col.width ? { width: col.width } : undefined}
                 className={cn(
-                  "px-4 py-3 text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.06em]",
+                  "px-4 py-3 text-[12.5px] font-extrabold text-on-surface-variant uppercase tracking-[0.06em] sticky top-0 z-10 bg-surface-container shadow-[0_1px_0_0_var(--color-outline-variant)]",
                   alignClass(col.align),
                   col.sortable && "cursor-pointer select-none hover:text-on-surface"
                 )}

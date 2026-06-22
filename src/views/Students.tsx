@@ -1,20 +1,32 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Plus, 
   Eye, 
   Search,
   Phone,
-  User
+  User,
+  FileSpreadsheet
 } from "lucide-react";
 import { api } from "../lib/api";
 import { StudentForm } from "../components/forms/StudentForm";
 import { StudentDetailPanel } from "../components/details/StudentDetailPanel";
-import { Pagination, useSlidePanel } from "../components/ui";
+import { 
+  Pagination, 
+  useSlidePanel, 
+  Table, 
+  type TableColumn,
+  ExcelImportModal 
+} from "../components/ui";
 import { cn } from "../lib/utils";
+import { exportToExcel, parseExcelDate, parseGender } from "../lib/excelHelper";
+import { useAuthStore } from "../stores/authStore";
+import { toast } from "../stores/toastStore";
 
 export function Students() {
   const { openPanel } = useSlidePanel();
+  const queryClient = useQueryClient();
+  const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
   
   // Search & Filter state
   const [search, setSearch] = useState("");
@@ -24,6 +36,9 @@ export function Students() {
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [page, setPage] = useState(1);
   const pageSize = 12;
+
+  // Import modal state
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -44,7 +59,7 @@ export function Students() {
     queryKey: ['classes-list'],
     queryFn: () => api.getAll('classes', { page: 1, pageSize: 100 }, {}, 'id, name, grade_level')
   });
-  const classesList = classesResponse?.data?.data || [];
+  const classesList = (classesResponse?.data?.data as any[]) || [];
 
   // Filter classes based on selected grade
   const filteredClassesList = selectedGrade === "all" 
@@ -113,20 +128,215 @@ export function Students() {
     }
   };
 
-  // Map status to badge style
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] bg-green-50 text-green-700 border border-green-200 font-semibold tracking-wide">Đang học</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-emerald-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Đang học</span>;
       case 'suspended':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] bg-amber-50 text-amber-700 border border-amber-200 font-semibold tracking-wide">Tạm nghỉ</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-amber-500 text-white font-extrabold tracking-wide shadow-2xs select-none">Tạm nghỉ</span>;
       case 'graduated':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] bg-blue-50 text-blue-700 border border-blue-200 font-semibold tracking-wide">Tốt nghiệp</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-sky-600 text-white font-extrabold tracking-wide shadow-2xs select-none">Tốt nghiệp</span>;
       case 'transferred':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] bg-gray-50 text-gray-600 border border-gray-200 font-semibold tracking-wide">Chuyển trường</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-slate-500 text-white font-extrabold tracking-wide shadow-2xs select-none">Chuyển trường</span>;
       default:
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] bg-gray-50 text-gray-600 border border-gray-200 font-semibold tracking-wide">{status}</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] bg-slate-500 text-white font-extrabold tracking-wide shadow-2xs select-none">{status}</span>;
     }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const filters: Record<string, any> = {};
+      if (selectedStatus !== "all") {
+        filters.status = selectedStatus;
+      }
+      if (selectedClassId !== "all") {
+        filters.class_id = selectedClassId;
+      } else if (selectedGrade !== "all") {
+        const classIdsInGrade = classesList
+          .filter((c: any) => c.grade_level === selectedGrade)
+          .map((c: any) => c.id);
+          
+        if (classIdsInGrade.length > 0) {
+          filters.class_id = `in.(${classIdsInGrade.join(',')})`;
+        } else {
+          toast.error("Không có dữ liệu học sinh để xuất");
+          return;
+        }
+      }
+
+      const res = await api.getAll(
+        'students',
+        { page: 1, pageSize: 10000, sortBy: 'full_name', sortOrder: 'asc' },
+        {
+          search: debouncedSearch || undefined,
+          filters: Object.keys(filters).length > 0 ? filters : undefined
+        },
+        '*, classes(name), guardians(*)'
+      );
+
+      const exportData = (res.data?.data || []).map((row: any) => {
+        const father = row.guardians?.find((g: any) => g.relationship === 'cha');
+        const mother = row.guardians?.find((g: any) => g.relationship === 'me');
+        const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+
+        return {
+          student_code: row.student_code,
+          full_name: row.full_name,
+          date_of_birth: row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString('vi-VN') : '',
+          gender: row.gender === 'female' ? 'Nữ' : 'Nam',
+          address: row.address || '',
+          enrollment_date: row.enrollment_date ? new Date(row.enrollment_date).toLocaleDateString('vi-VN') : '',
+          class_name: row.classes?.name || 'Chưa xếp lớp',
+          father_name: father?.full_name || '',
+          father_phone: father?.phone || '',
+          mother_name: mother?.full_name || '',
+          mother_phone: mother?.phone || '',
+          guardian_name: primaryGuardian?.full_name || '',
+          guardian_phone: primaryGuardian?.phone || '',
+          relationship: primaryGuardian ? (primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'Khác') : ''
+        };
+      });
+
+      const columns = [
+        { key: 'student_code', label: 'Mã học sinh' },
+        { key: 'full_name', label: 'Họ tên' },
+        { key: 'date_of_birth', label: 'Ngày sinh' },
+        { key: 'gender', label: 'Giới tính' },
+        { key: 'address', label: 'Địa chỉ' },
+        { key: 'enrollment_date', label: 'Ngày nhập học' },
+        { key: 'class_name', label: 'Lớp' },
+        { key: 'father_name', label: 'Họ tên bố' },
+        { key: 'father_phone', label: 'SĐT bố' },
+        { key: 'mother_name', label: 'Họ tên mẹ' },
+        { key: 'mother_phone', label: 'SĐT mẹ' },
+        { key: 'guardian_name', label: 'Phụ huynh chính' },
+        { key: 'guardian_phone', label: 'SĐT phụ huynh' },
+        { key: 'relationship', label: 'Quan hệ' }
+      ];
+
+      exportToExcel(exportData, columns, 'Danh_Sach_Hoc_Sinh', 'Học sinh');
+      toast.success("Đã xuất Excel danh sách học sinh!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Có lỗi xảy ra khi xuất Excel: " + err.message);
+    }
+  };
+
+  const handleImportExcel = async (rows: any[]) => {
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const lineNum = i + 2;
+
+      const fullName = row['Họ tên'] || row['Họ và tên'];
+      if (!fullName) {
+        errorCount++;
+        errors.push(`Dòng ${lineNum}: Thiếu Họ tên học sinh.`);
+        continue;
+      }
+
+      const rawDob = row['Ngày sinh'];
+      const rawGender = row['Giới tính'];
+      const rawEnrollDate = row['Ngày nhập học'] || new Date().toISOString();
+      const address = row['Địa chỉ'];
+      const className = row['Lớp'];
+
+      const dob = parseExcelDate(rawDob);
+      const gender = parseGender(rawGender);
+      const enrollDate = parseExcelDate(rawEnrollDate);
+
+      // Tìm kiếm lớp tương ứng
+      let classId = null;
+      if (className) {
+        const foundClass = classesList.find((c: any) => c.name.toLowerCase().trim() === className.toLowerCase().trim());
+        if (foundClass) {
+          classId = foundClass.id;
+        }
+      }
+
+      // Phụ huynh
+      const fatherName = row['Họ tên bố'];
+      const fatherPhone = row['SĐT bố'] || row['Số điện thoại bố'];
+      const motherName = row['Họ tên mẹ'];
+      const motherPhone = row['SĐT mẹ'] || row['Số điện thoại mẹ'];
+
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      const studentCode = row['Mã học sinh'] || `HS${randNum}`;
+
+      try {
+        const studentId = crypto.randomUUID();
+
+        // 1. Tạo học sinh
+        const studentPayload = {
+          id: studentId,
+          school_id: schoolId,
+          class_id: classId,
+          student_code: studentCode,
+          full_name: fullName.trim(),
+          date_of_birth: dob,
+          gender: gender,
+          address: address ? address.trim() : null,
+          enrollment_date: enrollDate,
+          status: 'active' as const,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const studentRes = await api.create('students', studentPayload);
+        if (studentRes.error) throw new Error(studentRes.error);
+
+        // 2. Tạo phụ huynh
+        const guardiansPayload: any[] = [];
+        
+        if (motherName && motherPhone) {
+          guardiansPayload.push({
+            id: crypto.randomUUID(),
+            student_id: studentId,
+            full_name: motherName.trim(),
+            relationship: 'me',
+            phone: String(motherPhone).trim(),
+            is_primary: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+
+        if (fatherName && fatherPhone) {
+          guardiansPayload.push({
+            id: crypto.randomUUID(),
+            student_id: studentId,
+            full_name: fatherName.trim(),
+            relationship: 'cha',
+            phone: String(fatherPhone).trim(),
+            is_primary: guardiansPayload.length === 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+
+        if (guardiansPayload.length > 0) {
+          const guardianRes = await api.createMany('guardians', guardiansPayload);
+          if (guardianRes.error) {
+            console.error("Lỗi khi thêm phụ huynh:", guardianRes.error);
+          }
+        }
+
+        successCount++;
+      } catch (err: any) {
+        console.error(err);
+        errorCount++;
+        errors.push(`Dòng ${lineNum} (${fullName}): ${err.message || 'Lỗi hệ thống'}`);
+      }
+    }
+
+    // Refresh query
+    queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    queryClient.invalidateQueries({ queryKey: ['classes-list'] });
+
+    return { successCount, errorCount, errors };
   };
 
   const handleOpenDetail = (studentId: string) => {
@@ -158,100 +368,166 @@ export function Students() {
     });
   };
 
+  // Define Table Columns
+  const tableColumns: TableColumn<any>[] = [
+    {
+      key: "full_name",
+      header: "Học sinh",
+      sortable: true,
+      render: (row: any) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-[14px] font-bold text-primary border border-primary/20 shrink-0">
+            {row.profile_image_url ? (
+              <img src={row.profile_image_url} alt={row.full_name} className="w-full h-full object-cover" />
+            ) : (
+              row.full_name.substring(0, 1)
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-on-surface truncate">{row.full_name}</div>
+            <div className="text-[12px] text-on-surface-variant font-medium">{row.student_code}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: "classes",
+      header: "Lớp",
+      render: (row: any) => (
+        <span className={row.classes?.name ? "font-semibold text-on-surface" : "text-on-surface-variant font-medium italic"}>
+          {row.classes?.name || "Chưa xếp lớp"}
+        </span>
+      )
+    },
+    {
+      key: "parent",
+      header: "Phụ huynh chính",
+      render: (row: any) => {
+        const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+        const parentName = primaryGuardian 
+          ? `${primaryGuardian.full_name} (${primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'PH'})` 
+          : '—';
+        const parentPhone = primaryGuardian ? primaryGuardian.phone : '—';
+        return (
+          <div>
+            <div className="text-on-surface font-semibold">{parentName}</div>
+            <div className="text-[12px] text-on-surface-variant font-medium flex items-center gap-1.5">
+              <Phone className="w-3 h-3 text-primary" /> {parentPhone}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      key: "status",
+      header: "Trạng thái",
+      render: (row: any) => getStatusBadge(row.status)
+    }
+  ];
+
   return (
-    <div className="animate-in fade-in duration-300 space-y-6">
+    <div className="animate-in fade-in duration-300 space-y-4">
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[32px] md:text-[40px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách học sinh</h2>
+          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách học sinh</h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1">Quản lý và theo dõi thông tin chi tiết của tất cả học sinh tại trường mầm non.</p>
         </div>
-        <button 
-          onClick={handleCreateStudent}
-          className="bg-primary text-on-primary px-5 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm hover:shadow-md cursor-pointer duration-200"
-        >
-          <Plus className="w-5 h-5" />
-          Thêm học sinh mới
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleExportExcel}
+            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            Xuất Excel
+          </button>
+          <button 
+            onClick={() => setIsImportOpen(true)}
+            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+          >
+            <Plus className="w-4 h-4 text-primary" />
+            Nhập Excel
+          </button>
+          <button 
+            onClick={handleCreateStudent}
+            className="bg-primary text-on-primary px-5 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm hover:shadow-md cursor-pointer duration-200"
+          >
+            <Plus className="w-5 h-5" />
+            Thêm học sinh mới
+          </button>
+        </div>
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-surface p-5 rounded-[32px] border border-outline-variant/30 shadow-xs flex flex-wrap gap-4 items-end">
+      <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-xs flex flex-wrap gap-3.5 items-center">
         {/* Search Input */}
-        <div className="flex flex-col gap-2 w-full md:w-64">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Tìm kiếm</label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-            <input 
-              type="text" 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nhập tên học sinh hoặc mã số..." 
-              className="w-full pl-10 pr-4 py-2.5 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
-            />
-          </div>
+        <div className="relative w-full md:w-64">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+          <input 
+            type="text" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm theo tên học sinh, mã số..." 
+            className="w-full pl-10 pr-4 py-2 border border-outline-variant/50 rounded-xl text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors"
+          />
         </div>
 
         {/* Grade Filter */}
-        <div className="flex flex-col gap-2 w-44">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Khối</label>
-          <select 
-            value={selectedGrade}
-            onChange={(e) => {
-              setSelectedGrade(e.target.value);
-              setSelectedClassId("all");
-            }}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer"
-          >
-            <option value="all">Tất cả các khối</option>
-            <option value="nha_tre">Nhà trẻ (24-36th)</option>
-            <option value="mam">Khối Mầm (3-4t)</option>
-            <option value="choi">Khối Chồi (4-5t)</option>
-            <option value="la">Khối Lá (5-6t)</option>
-          </select>
-        </div>
+        <select 
+          value={selectedGrade}
+          onChange={(e) => {
+            setSelectedGrade(e.target.value);
+            setSelectedClassId("all");
+          }}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+        >
+          <option value="all">Tất cả khối</option>
+          <option value="nha_tre">Nhà trẻ (24-36th)</option>
+          <option value="mam">Khối Mầm (3-4t)</option>
+          <option value="choi">Khối Chồi (4-5t)</option>
+          <option value="la">Khối Lá (5-6t)</option>
+        </select>
 
         {/* Class Filter */}
-        <div className="flex flex-col gap-2 w-44">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Lớp</label>
-          <select 
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer"
-          >
-            <option value="all">Tất cả các lớp</option>
-            {filteredClassesList.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name} ({getGradeName(c.grade_level)})</option>
-            ))}
-          </select>
-        </div>
+        <select 
+          value={selectedClassId}
+          onChange={(e) => setSelectedClassId(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+        >
+          <option value="all">Tất cả các lớp</option>
+          {filteredClassesList.map((c: any) => {
+            const gradeName = getGradeName(c.grade_level);
+            return (
+              <option key={c.id} value={c.id}>
+                {c.name}{gradeName ? ` (${gradeName})` : ''}
+              </option>
+            );
+          })}
+        </select>
 
         {/* Status Filter */}
-        <div className="flex flex-col gap-2 w-40">
-          <label className="text-[12px] font-bold uppercase tracking-widest text-on-surface-variant">Trạng thái</label>
-          <select 
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-4 py-2.5 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang học</option>
-            <option value="suspended">Tạm nghỉ</option>
-            <option value="graduated">Đã tốt nghiệp</option>
-            <option value="transferred">Đã chuyển trường</option>
-          </select>
-        </div>
+        <select 
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value)}
+          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+        >
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang học</option>
+          <option value="suspended">Tạm nghỉ</option>
+          <option value="graduated">Đã tốt nghiệp</option>
+          <option value="transferred">Đã chuyển trường</option>
+        </select>
 
         <button 
           onClick={handleResetFilters}
-          className="px-5 py-2.5 text-primary text-[14px] font-bold hover:bg-primary/5 rounded-xl transition-all cursor-pointer ml-auto"
+          className="px-4 py-2 text-primary text-[14px] font-bold hover:bg-primary/5 rounded-xl transition-all cursor-pointer ml-auto"
         >
           Xóa bộ lọc
         </button>
       </div>
 
       {/* Main Student List — Full Width Layout */}
-      <div className="bg-surface rounded-[32px] border border-outline-variant/30 shadow-xs overflow-hidden flex flex-col min-h-[500px]">
+      <div className="bg-surface rounded-2xl border border-outline-variant/30 shadow-xs overflow-hidden flex flex-col min-h-[400px]">
         {/* List Header */}
         <div className="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-white">
           <h3 className="text-[20px] font-bold italic font-playfair text-on-surface">Danh sách chi tiết</h3>
@@ -261,7 +537,7 @@ export function Students() {
         </div>
         
         {/* Main Table Area */}
-        <div className="overflow-x-auto bg-white flex-1">
+        <div className="bg-white flex-1 overflow-hidden">
           {isLoading ? (
             <div className="p-8 space-y-6">
               {[...Array(6)].map((_, i) => (
@@ -291,68 +567,13 @@ export function Students() {
               <p className="text-sm text-on-surface-variant max-w-sm mx-auto">Không tìm thấy bản ghi nào trùng khớp với bộ lọc hoặc tìm kiếm hiện tại.</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant/30">
-                <tr>
-                  <th className="px-6 py-4 text-[13px] font-bold uppercase tracking-wider">Học sinh</th>
-                  <th className="px-6 py-4 text-[13px] font-bold uppercase tracking-wider">Lớp</th>
-                  <th className="px-6 py-4 text-[13px] font-bold uppercase tracking-wider">Phụ huynh chính</th>
-                  <th className="px-6 py-4 text-[13px] font-bold uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-4 text-[13px] font-bold uppercase tracking-wider text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="text-[14.5px] divide-y divide-outline-variant/15">
-                {studentsData.map((student: any) => {
-                  const primaryGuardian = student.guardians?.find((g: any) => g.is_primary) || student.guardians?.[0];
-                  const parentName = primaryGuardian 
-                    ? `${primaryGuardian.full_name} (${primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'PH'})` 
-                    : '—';
-                  const parentPhone = primaryGuardian ? primaryGuardian.phone : '—';
-                  
-                  return (
-                    <tr 
-                      key={student.id}
-                      onClick={() => handleOpenDetail(student.id)}
-                      className="cursor-pointer hover:bg-surface-container-low/20 transition-colors"
-                    >
-                      <td className="px-6 py-3 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-[14px] font-bold text-primary border border-primary/20 shrink-0">
-                          {student.profile_image_url ? (
-                            <img src={student.profile_image_url} alt={student.full_name} className="w-full h-full object-cover" />
-                          ) : (
-                            student.full_name.substring(0, 1)
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-semibold text-on-surface truncate">{student.full_name}</div>
-                          <div className="text-[12px] text-on-surface-variant font-medium">{student.student_code}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3 text-on-surface font-semibold">
-                        {student.classes?.name || <span className="text-on-surface-variant font-medium italic">Chưa xếp lớp</span>}
-                      </td>
-                      <td className="px-6 py-3">
-                        <div className="text-on-surface font-semibold">{parentName}</div>
-                        <div className="text-[12px] text-on-surface-variant font-medium flex items-center gap-1.5">
-                          <Phone className="w-3 h-3 text-primary" /> {parentPhone}
-                        </div>
-                      </td>
-                      <td className="px-6 py-3">
-                        {getStatusBadge(student.status)}
-                      </td>
-                      <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          onClick={() => handleOpenDetail(student.id)}
-                          className="text-primary hover:bg-primary-container/30 p-2 rounded-xl transition-all cursor-pointer inline-flex items-center gap-1 text-[13px] font-bold border border-transparent hover:border-primary/20"
-                        >
-                          <Eye className="w-4 h-4" /> Xem hồ sơ
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <Table
+              className="rounded-none border-0 bg-transparent"
+              columns={tableColumns}
+              data={studentsData}
+              rowKey={(row) => row.id}
+              onRowClick={(row) => handleOpenDetail(row.id)}
+            />
           )}
         </div>
 
@@ -368,6 +589,18 @@ export function Students() {
           </div>
         )}
       </div>
+
+      {/* Modal Import Excel */}
+      <ExcelImportModal
+        open={isImportOpen}
+        onClose={() => {
+          setIsImportOpen(false);
+          refetch();
+        }}
+        title="Nhập danh sách học sinh từ Excel"
+        templateType="students"
+        onImport={handleImportExcel}
+      />
     </div>
   );
 }
