@@ -452,7 +452,12 @@ export function Students() {
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách học sinh</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách học sinh</h2>
+            <span className="text-[12px] font-extrabold text-primary bg-primary-container/20 px-3 py-1 rounded-xl">
+              Tổng số: {totalCount} học sinh
+            </span>
+          </div>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1">Quản lý và theo dõi thông tin chi tiết của tất cả học sinh tại trường mầm non.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -550,14 +555,6 @@ export function Students() {
 
       {/* Main Student List — Full Width Layout */}
       <div className="bg-surface rounded-2xl border border-outline-variant/30 shadow-xs overflow-hidden flex flex-col min-h-[400px]">
-        {/* List Header */}
-        <div className="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-white">
-          <h3 className="text-[20px] font-bold italic font-playfair text-on-surface">Danh sách chi tiết</h3>
-          <div className="text-[12px] font-extrabold text-primary bg-primary-container/20 px-3 py-1.5 rounded-xl">
-            Tổng số: {totalCount} học sinh
-          </div>
-        </div>
-        
         {/* Main Table Area */}
         <div className="bg-white flex-1 overflow-hidden">
           {isLoading ? (
