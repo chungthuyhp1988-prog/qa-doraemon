@@ -27,6 +27,8 @@ export interface TableProps<T> {
   rowKey?: (row: T) => string;
   onRowClick?: (row: T) => void;
   className?: string;
+  onScrollToBottom?: () => void;
+  loadingMore?: boolean;
 }
 
 type SortDir = "asc" | "desc" | null;
@@ -59,6 +61,8 @@ export function Table<T>({
   rowKey = (_r: T, i?: number) => String(i),
   onRowClick,
   className,
+  onScrollToBottom,
+  loadingMore = false,
 }: TableProps<T> & { rowKey?: (row: T, index: number) => string }) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -115,10 +119,18 @@ export function Table<T>({
 
   const totalCols = columns.length + (selectable ? 1 : 0);
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      onScrollToBottom?.();
+    }
+  };
+
   return (
     <div
+      onScroll={handleScroll}
       className={cn(
-        "w-full overflow-x-auto max-h-[600px] overflow-y-auto relative rounded-xl border border-outline-variant/60 bg-surface",
+        "w-full overflow-x-auto max-h-[850px] overflow-y-auto relative rounded-xl border border-outline-variant/60 bg-surface",
         className
       )}
     >
@@ -237,6 +249,12 @@ export function Table<T>({
           )}
         </tbody>
       </table>
+      {loadingMore && (
+        <div className="sticky bottom-0 z-10 py-2.5 text-center text-sm text-on-surface-variant flex items-center justify-center gap-2 bg-surface/95 backdrop-blur-xs border-t border-outline-variant/20 shadow-xs">
+          <div className="w-4.5 h-4.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span>Đang tải thêm...</span>
+        </div>
+      )}
     </div>
   );
 }

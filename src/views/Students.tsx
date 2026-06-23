@@ -12,7 +12,6 @@ import { api } from "../lib/api";
 import { StudentForm } from "../components/forms/StudentForm";
 import { StudentDetailPanel } from "../components/details/StudentDetailPanel";
 import { 
-  Pagination, 
   useSlidePanel, 
   Table, 
   type TableColumn,
@@ -34,8 +33,7 @@ export function Students() {
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
-  const [page, setPage] = useState(1);
-  const pageSize = 12;
+  const [pageSize, setPageSize] = useState(25);
 
   // Import modal state
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -44,15 +42,14 @@ export function Students() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reset to page 1 on new search
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Reset page on filter changes
+  // Reset page size on search or filter changes
   useEffect(() => {
-    setPage(1);
-  }, [selectedGrade, selectedClassId, selectedStatus]);
+    setPageSize(25);
+  }, [debouncedSearch, selectedGrade, selectedClassId, selectedStatus]);
 
   // 1. Fetch classes list for dropdown filters
   const { data: classesResponse } = useQuery({
@@ -66,9 +63,9 @@ export function Students() {
     ? classesList 
     : classesList.filter((c: any) => c.grade_level === selectedGrade);
 
-  // 2. Fetch students list based on search, filters and page
-  const { data: studentsResponse, isLoading, isError, refetch } = useQuery({
-    queryKey: ['students-list', debouncedSearch, selectedGrade, selectedClassId, selectedStatus, page],
+  // 2. Fetch students list based on search, filters and page size
+  const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['students-list', debouncedSearch, selectedGrade, selectedClassId, selectedStatus, pageSize],
     queryFn: async () => {
       const filters: Record<string, any> = {};
       
@@ -95,7 +92,7 @@ export function Students() {
 
       return api.getAll(
         'students',
-        { page, pageSize, sortBy: 'full_name', sortOrder: 'asc' },
+        { page: 1, pageSize, sortBy: 'full_name', sortOrder: 'asc' },
         {
           search: debouncedSearch || undefined,
           filters: Object.keys(filters).length > 0 ? filters : undefined
@@ -114,7 +111,7 @@ export function Students() {
     setSelectedGrade("all");
     setSelectedClassId("all");
     setSelectedStatus("active");
-    setPage(1);
+    setPageSize(25);
   };
 
   // Helper to map grade level code to display text
@@ -371,6 +368,17 @@ export function Students() {
   // Define Table Columns
   const tableColumns: TableColumn<any>[] = [
     {
+      key: "stt",
+      header: "STT",
+      width: "60px",
+      align: "center",
+      render: (_row: any, index: number) => (
+        <span className="text-on-surface-variant font-semibold text-[13px]">
+          {index + 1}
+        </span>
+      )
+    },
+    {
       key: "full_name",
       header: "Học sinh",
       sortable: true,
@@ -424,6 +432,12 @@ export function Students() {
       render: (row: any) => getStatusBadge(row.status)
     }
   ];
+
+  const handleScrollToBottom = () => {
+    if (!isFetching && studentsData.length < totalCount) {
+      setPageSize(prev => prev + 25);
+    }
+  };
 
   return (
     <div className="animate-in fade-in duration-300 space-y-4">
@@ -573,21 +587,11 @@ export function Students() {
               data={studentsData}
               rowKey={(row) => row.id}
               onRowClick={(row) => handleOpenDetail(row.id)}
+              onScrollToBottom={handleScrollToBottom}
+              loadingMore={isFetching && studentsData.length < totalCount}
             />
           )}
         </div>
-
-        {/* Pagination Controls */}
-        {totalCount > 0 && (
-          <div className="px-6 py-4 border-t border-outline-variant/20 bg-white">
-            <Pagination
-              currentPage={page}
-              totalItems={totalCount}
-              pageSize={pageSize}
-              onPageChange={(p) => setPage(p)}
-            />
-          </div>
-        )}
       </div>
 
       {/* Modal Import Excel */}

@@ -528,6 +528,17 @@ export function Teachers() {
   // Define Table Columns
   const tableColumns: TableColumn<any>[] = [
     {
+      key: "stt",
+      header: "STT",
+      width: "60px",
+      align: "center",
+      render: (_row: any, index: number) => (
+        <span className="text-on-surface-variant font-semibold text-[13px]">
+          {((page - 1) * pageSize) + index + 1}
+        </span>
+      )
+    },
+    {
       key: "full_name",
       header: "Họ và tên",
       sortable: true,
