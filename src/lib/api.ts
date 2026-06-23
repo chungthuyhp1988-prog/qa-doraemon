@@ -92,27 +92,26 @@ function applyFilters(query: any, options?: FilterOptions, table?: string): any 
     query = query.gte(column, from).lte(column, to);
   }
 
-  // Free-text search (uses table-aware column fallbacks)
+  // Free-text search (uses table-aware column mappings)
   if (options.search) {
     const searchVal = options.search.trim();
     if (searchVal) {
-      if (table === 'students') {
-        query = query.or(
-          `full_name.ilike.%${searchVal}%,student_code.ilike.%${searchVal}%`
-        );
-      } else if (table === 'users') {
-        query = query.or(
-          `full_name.ilike.%${searchVal}%,email.ilike.%${searchVal}%,phone.ilike.%${searchVal}%`
-        );
-      } else if (table === 'notifications') {
-        query = query.or(
-          `title.ilike.%${searchVal}%,content.ilike.%${searchVal}%`
-        );
-      } else {
-        // Fallback search
-        query = query.or(
-          `name.ilike.%${searchVal}%`
-        );
+      const searchColumns: Record<string, string> = {
+        students: `full_name.ilike.%${searchVal}%,student_code.ilike.%${searchVal}%`,
+        users: `full_name.ilike.%${searchVal}%,email.ilike.%${searchVal}%,phone.ilike.%${searchVal}%`,
+        notifications: `title.ilike.%${searchVal}%,content.ilike.%${searchVal}%`,
+        classes: `name.ilike.%${searchVal}%`,
+        meal_plans: `menu_items.ilike.%${searchVal}%,notes.ilike.%${searchVal}%`,
+        health_records: `notes.ilike.%${searchVal}%,medical_notes.ilike.%${searchVal}%`,
+        student_evaluations: `notes.ilike.%${searchVal}%`,
+      };
+
+      const searchOr = searchColumns[table || ''];
+      if (searchOr) {
+        query = query.or(searchOr);
+      } else if (table) {
+        // Safe fallback: try 'name' column (works for schools, academic_years)
+        query = query.or(`name.ilike.%${searchVal}%`);
       }
     }
   }
@@ -174,42 +173,19 @@ async function getAll<T>(
       nha_tre: 1,
       mam: 2,
       choi: 3,
-      la: 4
+      la: 4,
     };
     rawData = [...rawData].sort((a: any, b: any) => {
-      let orderA = 99;
-      let orderB = 99;
-      
-      // Determine grade order by grade_level column
-      if (a.grade_level && gradeOrder[a.grade_level]) {
-        orderA = gradeOrder[a.grade_level];
-      } else if (a.name) {
-        // Fallback to parsing name prefix
-        const lower = a.name.toLowerCase().trim();
-        if (lower.startsWith('shizuka')) orderA = 1;
-        else if (lower.startsWith('nobita')) orderA = 2;
-        else if (lower.startsWith('dorami')) orderA = 3;
-        else if (lower.startsWith('doraemon')) orderA = 4;
-      }
-      
-      // Determine grade order for B
-      if (b.grade_level && gradeOrder[b.grade_level]) {
-        orderB = gradeOrder[b.grade_level];
-      } else if (b.name) {
-        // Fallback to parsing name prefix
-        const lower = b.name.toLowerCase().trim();
-        if (lower.startsWith('shizuka')) orderB = 1;
-        else if (lower.startsWith('nobita')) orderB = 2;
-        else if (lower.startsWith('dorami')) orderB = 3;
-        else if (lower.startsWith('doraemon')) orderB = 4;
-      }
-      
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
-      
-      // If same grade, sort numerically/alphabetically by name
-      return (a.name || '').localeCompare(b.name || '', 'vi', { numeric: true, sensitivity: 'base' });
+      const orderA = (a.grade_level && gradeOrder[a.grade_level]) || 99;
+      const orderB = (b.grade_level && gradeOrder[b.grade_level]) || 99;
+
+      if (orderA !== orderB) return orderA - orderB;
+
+      // Same grade: sort by name (numeric-aware for 'Doraemon 1', 'Doraemon 2')
+      return (a.name || '').localeCompare(b.name || '', 'vi', {
+        numeric: true,
+        sensitivity: 'base',
+      });
     });
   }
 
