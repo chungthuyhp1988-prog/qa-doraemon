@@ -72,7 +72,7 @@ async function handleResponse<T>(
  * @returns The mutated query.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyFilters(query: any, options?: FilterOptions): any {
+function applyFilters(query: any, options?: FilterOptions, table?: string): any {
   if (!options) return query;
 
   // Exact-match filters
@@ -92,13 +92,29 @@ function applyFilters(query: any, options?: FilterOptions): any {
     query = query.gte(column, from).lte(column, to);
   }
 
-  // Free-text search (uses Postgres full-text or ilike on common columns)
-  // Note: for full-text you'd set up a tsvector column; here we use ilike as
-  // a simple fallback. The caller can override via `filters`.
+  // Free-text search (uses table-aware column fallbacks)
   if (options.search) {
-    query = query.or(
-      `full_name.ilike.%${options.search}%,email.ilike.%${options.search}%`,
-    );
+    const searchVal = options.search.trim();
+    if (searchVal) {
+      if (table === 'students') {
+        query = query.or(
+          `full_name.ilike.%${searchVal}%,student_code.ilike.%${searchVal}%`
+        );
+      } else if (table === 'users') {
+        query = query.or(
+          `full_name.ilike.%${searchVal}%,email.ilike.%${searchVal}%,phone.ilike.%${searchVal}%`
+        );
+      } else if (table === 'notifications') {
+        query = query.or(
+          `title.ilike.%${searchVal}%,content.ilike.%${searchVal}%`
+        );
+      } else {
+        // Fallback search
+        query = query.or(
+          `name.ilike.%${searchVal}%`
+        );
+      }
+    }
   }
 
   return query;
@@ -141,7 +157,7 @@ async function getAll<T>(
   }
 
   // Filters
-  query = applyFilters(query, options);
+  query = applyFilters(query, options, table);
 
   const { data, error, count } = await query;
 

@@ -30,7 +30,6 @@ export function Students() {
   // Search & Filter state
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [pageSize, setPageSize] = useState(25);
@@ -49,11 +48,11 @@ export function Students() {
   // Reset pagination and scroll position on search or filter changes
   useEffect(() => {
     setPageSize(25);
-    const el = document.querySelector('.max-h-\\[850px\\]');
+    const el = document.querySelector('.max-h-\\[80vh\\]');
     if (el) {
       el.scrollTop = 0;
     }
-  }, [debouncedSearch, selectedGrade, selectedClassId, selectedStatus]);
+  }, [debouncedSearch, selectedClassId, selectedStatus]);
 
   // 1. Fetch classes list for dropdown filters
   const { data: classesResponse } = useQuery({
@@ -62,14 +61,12 @@ export function Students() {
   });
   const classesList = (classesResponse?.data?.data as any[]) || [];
 
-  // Filter classes based on selected grade
-  const filteredClassesList = selectedGrade === "all" 
-    ? classesList 
-    : classesList.filter((c: any) => c.grade_level === selectedGrade);
+  // List of all classes (grade filter removed)
+  const filteredClassesList = classesList;
 
   // 2. Fetch students list based on search, filters and page size
   const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['students-list', debouncedSearch, selectedGrade, selectedClassId, selectedStatus, pageSize],
+    queryKey: ['students-list', debouncedSearch, selectedClassId, selectedStatus, pageSize],
     queryFn: async () => {
       const filters: Record<string, any> = {};
       
@@ -81,17 +78,6 @@ export function Students() {
       // Filter by specific class if selected
       if (selectedClassId !== "all") {
         filters.class_id = selectedClassId;
-      } else if (selectedGrade !== "all") {
-        // If no specific class is selected, filter by all class IDs belonging to the selected grade level
-        const classIdsInGrade = classesList
-          .filter((c: any) => c.grade_level === selectedGrade)
-          .map((c: any) => c.id);
-          
-        if (classIdsInGrade.length > 0) {
-          filters.class_id = `in.(${classIdsInGrade.join(',')})`;
-        } else {
-          return { data: { data: [], count: 0 }, error: null, count: 0 };
-        }
       }
 
       return api.getAll(
@@ -116,7 +102,6 @@ export function Students() {
   // Reset filters helper
   const handleResetFilters = () => {
     setSearch("");
-    setSelectedGrade("all");
     setSelectedClassId("all");
     setSelectedStatus("active");
     setPageSize(25);
@@ -156,17 +141,6 @@ export function Students() {
       }
       if (selectedClassId !== "all") {
         filters.class_id = selectedClassId;
-      } else if (selectedGrade !== "all") {
-        const classIdsInGrade = classesList
-          .filter((c: any) => c.grade_level === selectedGrade)
-          .map((c: any) => c.id);
-          
-        if (classIdsInGrade.length > 0) {
-          filters.class_id = `in.(${classIdsInGrade.join(',')})`;
-        } else {
-          toast.error("Không có dữ liệu học sinh để xuất");
-          return;
-        }
       }
 
       const res = await api.getAll(
@@ -499,21 +473,6 @@ export function Students() {
           />
         </div>
 
-        {/* Grade Filter */}
-        <select 
-          value={selectedGrade}
-          onChange={(e) => {
-            setSelectedGrade(e.target.value);
-            setSelectedClassId("all");
-          }}
-          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
-        >
-          <option value="all">Tất cả khối</option>
-          <option value="nha_tre">Nhà trẻ (24-36th)</option>
-          <option value="mam">Khối Mầm (3-4t)</option>
-          <option value="choi">Khối Chồi (4-5t)</option>
-          <option value="la">Khối Lá (5-6t)</option>
-        </select>
 
         {/* Class Filter */}
         <select 
