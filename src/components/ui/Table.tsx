@@ -130,7 +130,7 @@ export function Table<T>({
     <div
       onScroll={handleScroll}
       className={cn(
-        "w-full overflow-x-auto max-h-[850px] overflow-y-auto relative rounded-xl border border-outline-variant/60 bg-surface",
+        "w-full overflow-x-auto max-h-[80vh] overflow-y-auto relative rounded-xl border border-outline-variant/60 bg-surface",
         className
       )}
     >
