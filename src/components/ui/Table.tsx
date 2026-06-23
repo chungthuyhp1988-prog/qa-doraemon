@@ -88,7 +88,7 @@ export function Table<T>({
       // Helper to resolve nested properties or specific objects
       const getVal = (obj: any, path: string) => {
         if (!obj) return null;
-        if (path === 'classes') return obj.classes?.name || '';
+        if (path === 'classes' || path === 'class') return obj.classes?.name || '';
         return path.split('.').reduce((acc, part) => acc && acc[part], obj);
       };
 
