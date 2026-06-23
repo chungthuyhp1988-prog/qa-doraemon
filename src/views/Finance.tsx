@@ -517,16 +517,18 @@ export function Finance() {
             type="button"
             variant="outline"
             onClick={handleExportCSV}
+            leftIcon={<Download className="w-4 h-4" />}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl text-[14px] font-bold border-outline-variant/50 hover:bg-surface-container-low cursor-pointer"
           >
-            <Download className="w-4 h-4" /> Xuất Excel
+            Xuất Excel
           </Button>
           <Button
             type="button"
             onClick={handleCreateFee}
+            leftIcon={<Plus className="w-4 h-4" />}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm text-[14px] font-bold cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Tạo phiếu thu
+            Tạo phiếu thu
           </Button>
         </div>
       </div>
