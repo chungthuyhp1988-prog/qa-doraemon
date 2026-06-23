@@ -85,11 +85,22 @@ export function Table<T>({
   const sortedData = useMemo(() => {
     if (!sortCol || !sortDir) return data;
     return [...data].sort((a, b) => {
-      const av = (a as any)[sortCol];
-      const bv = (b as any)[sortCol];
+      // Helper to resolve nested properties or specific objects
+      const getVal = (obj: any, path: string) => {
+        if (!obj) return null;
+        if (path === 'classes') return obj.classes?.name || '';
+        return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      };
+
+      const av = getVal(a, sortCol);
+      const bv = getVal(b, sortCol);
+      
       if (av == null) return 1;
       if (bv == null) return -1;
-      const cmp = typeof av === "number" ? av - bv : String(av).localeCompare(String(bv));
+      
+      const cmp = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), 'vi', { numeric: true, sensitivity: 'base' });
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [data, sortCol, sortDir]);

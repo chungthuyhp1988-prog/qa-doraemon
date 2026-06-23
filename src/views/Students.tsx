@@ -383,6 +383,7 @@ export function Students() {
     {
       key: "classes",
       header: "Lớp",
+      sortable: true,
       render: (row: any) => (
         <span className={row.classes?.name ? "font-semibold text-on-surface" : "text-on-surface-variant font-medium italic"}>
           {row.classes?.name || "Chưa xếp lớp"}
