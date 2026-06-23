@@ -422,7 +422,7 @@ export function Classes() {
               </div>
             ) : (
               <Table 
-                className="rounded-2xl border border-outline-variant/30 shadow-sm bg-surface overflow-hidden"
+                className="rounded-2xl border border-outline-variant/30 shadow-sm bg-surface"
                 columns={tableColumns} 
                 data={filteredClasses} 
                 rowKey={(row) => row.id}

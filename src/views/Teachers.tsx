@@ -151,6 +151,12 @@ export function Teachers() {
   });
 
   const rawTeachersData = teachersResponse?.data?.data || [];
+  console.log("=== DEBUG TEACHERS ===");
+  console.log("rawTeachersData length:", rawTeachersData.length);
+  console.log("rawTeachersData:", rawTeachersData);
+  console.log("pageSize:", pageSize);
+  console.log("teachersResponse:", teachersResponse);
+  console.log("VITE_SUPABASE_URL in browser:", import.meta.env.VITE_SUPABASE_URL);
 
   const classifyUser = (user: any) => {
     const role = user.role || '';
@@ -743,7 +749,7 @@ export function Teachers() {
           </div>
         ) : (
           <Table 
-            className="rounded-[32px] border border-outline-variant/30 shadow-sm bg-surface-container-lowest overflow-hidden" 
+            className="rounded-[32px] border border-outline-variant/30 shadow-sm bg-surface-container-lowest" 
             columns={tableColumns} 
             data={[]} 
             loading={true} 
@@ -914,7 +920,7 @@ export function Teachers() {
           ) : (
             // Table View
             <Table 
-              className="rounded-[32px] border border-outline-variant/30 shadow-sm bg-surface-container-lowest overflow-hidden"
+              className="rounded-[32px] border border-outline-variant/30 shadow-sm bg-surface-container-lowest"
               columns={tableColumns} 
               data={teachersData} 
               rowKey={(row) => row.id}

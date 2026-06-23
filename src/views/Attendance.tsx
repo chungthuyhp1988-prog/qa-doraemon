@@ -679,7 +679,7 @@ export function Attendance() {
         </div>
       ) : (
         <Table
-          className="rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden bg-surface-container-lowest"
+          className="rounded-2xl border border-outline-variant/30 shadow-sm bg-surface-container-lowest"
           columns={tableColumns}
           data={studentsList}
           rowKey={(row) => row.id}

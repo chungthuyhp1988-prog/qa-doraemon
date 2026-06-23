@@ -261,7 +261,7 @@ export function Evaluations() {
 
       {/* Main Table view */}
       <Table 
-        className="rounded-2xl border border-outline-variant/30 shadow-sm bg-white overflow-hidden"
+        className="rounded-2xl border border-outline-variant/30 shadow-sm bg-white"
         columns={tableColumns} 
         data={students} 
         rowKey={(row) => row.id}
