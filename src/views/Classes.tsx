@@ -19,7 +19,7 @@ import {
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { toast } from "../stores/toastStore";
-import { ConfirmDialog, Table, type TableColumn, useSlidePanel } from "../components/ui";
+import { ConfirmDialog, Table, type TableColumn, useSlidePanel, ErrorState } from "../components/ui";
 import { ClassForm } from "../components/forms/ClassForm";
 import { ClassDetailPanel } from "../components/details/ClassDetailPanel";
 import { useAppStore } from "../stores/appStore";
@@ -56,7 +56,7 @@ export function Classes() {
   const teachersList = teachersResponse?.data?.data || [];
 
   // 3. Fetch all classes in selected academic year
-  const { data: classesResponse, isLoading: isLoadingClasses, refetch: refetchClasses } = useQuery({
+  const { data: classesResponse, isLoading: isLoadingClasses, isError: isErrorClasses, refetch: refetchClasses } = useQuery({
     queryKey: ['classes-list', selectedAcademicYearId],
     queryFn: () => {
       if (!selectedAcademicYearId) {
@@ -348,6 +348,8 @@ export function Classes() {
                   <div key={i} className="h-44 rounded-[32px] bg-surface-container-low animate-pulse" />
                 ))}
               </div>
+            ) : isErrorClasses ? (
+              <ErrorState onRetry={refetchClasses} />
             ) : filteredClasses.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 border border-dashed border-outline-variant/60 rounded-2xl bg-surface">
                 <Home className="w-10 h-10 text-on-surface-variant/40 mb-3" />

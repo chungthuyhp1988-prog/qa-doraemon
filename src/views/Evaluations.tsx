@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Plus, 
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { useSlidePanel, Table, type TableColumn } from "../components/ui";
+import { useSlidePanel, Table, type TableColumn, ErrorState } from "../components/ui";
 import { EvaluationForm } from "../components/forms/EvaluationForm";
 import { EvaluationDetailPanel } from "../components/details/EvaluationDetailPanel";
 import { useAppStore } from "../stores/appStore";
@@ -34,12 +34,14 @@ export function Evaluations() {
   const classesList = classesResponse?.data?.data || [];
 
   // Set default selected class filter
-  if (selectedClassId === "all" && classesList.length > 0) {
-    setSelectedClassId(classesList[0].id);
-  }
+  useEffect(() => {
+    if (selectedClassId === "all" && classesList.length > 0) {
+      setSelectedClassId(classesList[0].id);
+    }
+  }, [classesList]);
 
   // 2. Fetch students list with class details and their latest evaluation
-  const { data: studentsResponse, isLoading: isLoadingStudents, refetch: refetchStudents } = useQuery({
+  const { data: studentsResponse, isLoading: isLoadingStudents, isError: isErrorStudents, refetch: refetchStudents } = useQuery({
     queryKey: ['evals-students-list-full', selectedClassId, search],
     queryFn: async () => {
       const filters: Record<string, any> = { status: 'active' };
@@ -260,6 +262,9 @@ export function Evaluations() {
       </div>
 
       {/* Main Table view */}
+      {isErrorStudents ? (
+        <ErrorState onRetry={refetchStudents} />
+      ) : (
       <Table 
         className="rounded-2xl border border-outline-variant/30 shadow-sm bg-white"
         columns={tableColumns} 
@@ -270,6 +275,7 @@ export function Evaluations() {
         emptyTitle="Không tìm thấy dữ liệu đánh giá"
         emptyDescription="Không có dữ liệu học sinh nào khớp với bộ lọc lớp học hoặc từ khóa tìm kiếm."
       />
+      )}
     </div>
   );
 }

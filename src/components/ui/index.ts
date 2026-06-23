@@ -18,6 +18,7 @@ export { Switch, type SwitchProps } from "./Switch";
 export { Pagination, type PaginationProps } from "./Pagination";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
+export { ErrorState, type ErrorStateProps } from "./ErrorState";
 export { FileUpload, type FileUploadProps } from "./FileUpload";
 export { FormField, type FormFieldProps } from "./FormField";
 

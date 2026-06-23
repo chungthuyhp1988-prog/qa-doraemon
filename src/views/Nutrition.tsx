@@ -15,7 +15,7 @@ import {
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { toast } from "../stores/toastStore";
-import { useSlidePanel } from "../components/ui";
+import { useSlidePanel, ErrorState, ConfirmDialog } from "../components/ui";
 import { MealPlanForm } from "../components/forms/MealPlanForm";
 import { MealPlanDetailPanel } from "../components/details/MealPlanDetailPanel";
 import { useAuthStore } from "../stores/authStore";
@@ -32,6 +32,7 @@ export function Nutrition() {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [cloning, setCloning] = useState(false);
+  const [showCloneConfirm, setShowCloneConfirm] = useState(false);
 
   // 1. Fetch classes for creation form & filter
   const { data: classesResponse } = useQuery({
@@ -62,7 +63,7 @@ export function Nutrition() {
   const endOfWeekStr = weekDates[4].toISOString().split('T')[0];
 
   // 2. Fetch meal plans for the selected week
-  const { data: mealPlansResponse, isLoading, refetch } = useQuery({
+  const { data: mealPlansResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['meal-plans-weekly', startOfWeekStr, endOfWeekStr, selectedClassId],
     queryFn: () => {
       const filters: Record<string, any> = {};
@@ -158,7 +159,7 @@ export function Nutrition() {
   };
 
   // Clone from last week logic
-  const handleCloneLastWeek = async () => {
+  const handleCloneLastWeek = async (skipConfirm = false) => {
     setCloning(true);
     try {
       const lastMonday = new Date(monday);
@@ -193,11 +194,13 @@ export function Nutrition() {
       }
 
       // Check if we already have plans this week
-      if (mealPlans.length > 0) {
-        const confirmOverwrite = window.confirm("Tuần này đã có thực đơn. Bạn có chắc chắn muốn sao chép đè từ tuần trước?");
-        if (!confirmOverwrite) return;
+      if (mealPlans.length > 0 && !skipConfirm) {
+        setShowCloneConfirm(true);
+        return;
+      }
 
-        // Delete current week's plans first
+      // Delete current week's plans first
+      if (mealPlans.length > 0) {
         for (const mp of mealPlans) {
           await api.remove('meal_plans', mp.id);
         }
@@ -365,6 +368,8 @@ export function Nutrition() {
       {/* Weekly Grid */}
       {isLoading ? (
         <div className="h-96 bg-surface border border-outline-variant/20 rounded-3xl animate-pulse shadow-xs" />
+      ) : isError ? (
+        <ErrorState onRetry={refetch} />
       ) : (
         <div className="overflow-x-auto max-h-[650px] overflow-y-auto relative bg-surface border border-outline-variant/40 rounded-[32px] print:border-slate-300 print:rounded-none shadow-xs">
           <table className="w-full text-left text-sm border-collapse min-w-[800px]">
@@ -470,6 +475,20 @@ export function Nutrition() {
         <span>BGH TRƯỜNG MẦM NON DORAEMON</span>
         <span>Phụ huynh vui lòng theo dõi chế độ dinh dưỡng hàng ngày của trẻ tại ứng dụng.</span>
       </div>
+
+      <ConfirmDialog
+        open={showCloneConfirm}
+        title="Sao chép đè thực đơn?"
+        message="Tuần này đã có thực đơn. Bạn có chắc chắn muốn sao chép đè từ tuần trước?"
+        confirmText="Sao chép đè"
+        cancelText="Hủy"
+        variant="warning"
+        onConfirm={async () => {
+          setShowCloneConfirm(false);
+          await handleCloneLastWeek(true);
+        }}
+        onClose={() => setShowCloneConfirm(false)}
+      />
     </div>
   );
 }

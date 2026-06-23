@@ -54,11 +54,8 @@ const compareVietnameseNames = (nameA: string, nameB: string) => {
   return cleanA.localeCompare(cleanB, 'vi', { sensitivity: 'base' });
 };
 
-const getTeacherTitle = (email: string, role: string) => {
-  const emailLower = (email || '').toLowerCase().trim();
-  if (emailLower === 'nguyenthu20390@gmail.com') return 'Hiệu trưởng';
-  if (emailLower === 'phamthicamhoai09091998@gmail.com') return 'Hiệu Phó';
-  if (emailLower === 'thuylinh.drm@gmail.com') return 'Kế toán';
+const getTeacherTitle = (_email: string, role: string, jobTitle?: string) => {
+  if (jobTitle) return jobTitle;
   if (role === 'admin') return 'Ban giám hiệu';
   if (role === 'staff') return 'Nhân viên';
   return 'Giáo viên';
@@ -151,16 +148,11 @@ export function Teachers() {
   });
 
   const rawTeachersData = teachersResponse?.data?.data || [];
-  console.log("=== DEBUG TEACHERS ===");
-  console.log("rawTeachersData length:", rawTeachersData.length);
-  console.log("rawTeachersData:", rawTeachersData);
-  console.log("pageSize:", pageSize);
-  console.log("teachersResponse:", teachersResponse);
-  console.log("VITE_SUPABASE_URL in browser:", import.meta.env.VITE_SUPABASE_URL);
+
 
   const classifyUser = (user: any) => {
     const role = user.role || '';
-    const title = (user.job_title || getTeacherTitle(user.email, user.role) || '').toLowerCase().trim();
+    const title = (user.job_title || getTeacherTitle(user.email, user.role, user.job_title) || '').toLowerCase().trim();
     const name = (user.full_name || '').trim();
     const email = (user.email || '').toLowerCase().trim();
 
@@ -175,8 +167,7 @@ export function Teachers() {
       title.includes('p. hiệu trưởng') ||
       title.includes('p.hiệu trưởng') ||
       title.includes('chủ tịch') ||
-      title.includes('ban giám hiệu') ||
-      name === 'Hoàng Thị Thùy Linh';
+      title.includes('ban giám hiệu');
 
     if (isBGH) return 1;
 
@@ -191,7 +182,7 @@ export function Teachers() {
 
   const compareGroup1 = (a: any, b: any) => {
     const getSubRank = (user: any) => {
-      const title = (user.job_title || getTeacherTitle(user.email, user.role) || '').toLowerCase().trim();
+      const title = (user.job_title || getTeacherTitle(user.email, user.role, user.job_title) || '').toLowerCase().trim();
       const name = (user.full_name || '').trim();
 
       const isPrincipal = title.includes('hiệu trưởng') && !title.includes('phó') && !title.startsWith('p.');
@@ -201,9 +192,7 @@ export function Teachers() {
         return 2;
       }
       
-      if (name === 'Hoàng Thị Thùy Linh') return 3;
-      
-      return 4;
+      return 3;
     };
 
     const subRankA = getSubRank(a);
@@ -250,7 +239,7 @@ export function Teachers() {
 
   // Helper to map role to display text & styles
   const getRoleBadge = (row: any) => {
-    const title = row.job_title || getTeacherTitle(row.email, row.role);
+    const title = row.job_title || getTeacherTitle(row.email, row.role, row.job_title);
     switch (row.role) {
       case 'admin':
         return (

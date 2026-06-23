@@ -8,6 +8,8 @@ import { api } from './api';
  * to prevent exposing keys on the frontend and bypass CORS policy.
  */
 async function getZaloConfig() {
+  // TODO: SECURITY — In production, replace this with a Supabase Edge Function proxy.
+  // Currently fetches Zalo access token client-side which exposes it to the browser.
   try {
     const res = await api.getAll<any>('schools', { page: 1, pageSize: 1 });
     const school = res.data?.data?.[0];

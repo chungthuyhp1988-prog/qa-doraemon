@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { DatePicker, Skeleton, EmptyState, Button, Modal, Table, type TableColumn } from "../components/ui";
+import { DatePicker, Skeleton, EmptyState, ErrorState, Button, Modal, Table, type TableColumn } from "../components/ui";
 import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
 import { format } from "date-fns";
@@ -59,7 +59,7 @@ export function Attendance() {
   }, [classesList, selectedClassId]);
 
   // 2. Fetch active students in the selected class
-  const { data: studentsResponse, isLoading: isLoadingStudents } = useQuery({
+  const { data: studentsResponse, isLoading: isLoadingStudents, isError: isErrorStudents, refetch: refetchStudents } = useQuery({
     queryKey: ['students-attendance', selectedClassId],
     queryFn: () => api.getAll<any>('students', { page: 1, pageSize: 200, sortBy: 'full_name', sortOrder: 'asc' }, { filters: { class_id: selectedClassId, status: 'active' } }),
     enabled: !!selectedClassId,
@@ -549,6 +549,8 @@ export function Attendance() {
             ))}
           </div>
         )
+      ) : isErrorStudents ? (
+        <ErrorState onRetry={refetchStudents} />
       ) : studentsList.length === 0 ? (
         <EmptyState
           title="Không có học sinh"

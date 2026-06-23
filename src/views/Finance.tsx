@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { DatePicker, Table, type TableColumn, Button, useSlidePanel } from "../components/ui";
+import { DatePicker, Table, type TableColumn, Button, useSlidePanel, ErrorState } from "../components/ui";
 import { FeeForm } from "../components/forms/FeeForm";
 import { FeeDetailPanel } from "../components/details/FeeDetailPanel";
 import { toast } from "../stores/toastStore";
@@ -668,6 +668,9 @@ export function Finance() {
 
         {/* Data Table */}
         <div className="p-4">
+          {isError ? (
+            <ErrorState onRetry={refetch} />
+          ) : (
           <Table
             columns={tableColumns}
             data={feesData}
@@ -677,6 +680,7 @@ export function Finance() {
             emptyTitle="Không có dữ liệu phiếu thu"
             emptyDescription="Không tìm thấy phiếu thu nào khớp với bộ lọc tháng học hoặc trạng thái đã chọn."
           />
+          )}
         </div>
 
         {/* Pagination */}

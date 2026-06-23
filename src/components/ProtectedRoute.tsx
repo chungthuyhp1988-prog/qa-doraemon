@@ -23,10 +23,6 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     // Check current session on mount
     const checkSession = async () => {
       try {
-        if (useAuthStore.getState().accessToken === 'mock-admin-token') {
-          setLoading(false);
-          return;
-        }
 
         const {
           data: { session },
@@ -79,9 +75,6 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (useAuthStore.getState().accessToken === 'mock-admin-token') {
-        return;
-      }
 
       if (event === 'SIGNED_OUT' || !session) {
         setUser(null);

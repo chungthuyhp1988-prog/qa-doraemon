@@ -80,28 +80,3 @@ export default function App() {
   );
 }
 
-/** Temporary placeholder for routes under development */
-function PlaceholderView({
-  title,
-  description,
-  emoji,
-}: {
-  title: string;
-  description: string;
-  emoji: string;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 animate-in fade-in">
-      <span className="text-6xl mb-4">{emoji}</span>
-      <h2 className="font-playfair text-2xl font-bold text-on-surface mb-2">
-        {title}
-      </h2>
-      <p className="text-on-surface-variant text-center max-w-md">
-        {description}
-      </p>
-      <div className="mt-6 px-4 py-2 bg-primary-container text-on-primary-container rounded-full text-sm font-medium">
-        Sắp ra mắt
-      </div>
-    </div>
-  );
-}

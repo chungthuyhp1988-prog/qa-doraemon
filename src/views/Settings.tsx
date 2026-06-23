@@ -592,73 +592,6 @@ export function Settings() {
                 </button>
               </div>
 
-              {/* Define Academic Years Table Columns */}
-              {(() => {
-                const yearTableColumns: TableColumn<any>[] = [
-                  {
-                    key: "name",
-                    header: "Tên năm học",
-                    render: (row: any) => (
-                      <span className="font-bold text-on-surface">
-                        Năm học {row.name}
-                      </span>
-                    )
-                  },
-                  {
-                    key: "start_date",
-                    header: "Ngày bắt đầu",
-                    render: (row: any) => (
-                      <span className="text-xs text-on-surface-variant">
-                        {new Date(row.start_date).toLocaleDateString('vi-VN')}
-                      </span>
-                    )
-                  },
-                  {
-                    key: "end_date",
-                    header: "Ngày kết thúc",
-                    render: (row: any) => (
-                      <span className="text-xs text-on-surface-variant">
-                        {new Date(row.end_date).toLocaleDateString('vi-VN')}
-                      </span>
-                    )
-                  },
-                  {
-                    key: "status",
-                    header: "Trạng thái",
-                    render: (row: any) => row.is_current ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success-container/20 text-success border border-success/30 select-none">
-                        <Check className="w-3.5 h-3.5" />
-                        Hiện tại
-                      </span>
-                    ) : (
-                      <span className="text-xs text-on-surface-variant/60 font-medium italic select-none">
-                        Lịch sử / Chờ
-                      </span>
-                    )
-                  },
-                  {
-                    key: "actions",
-                    header: "Thao tác",
-                    align: "right",
-                    render: (row: any) => row.is_current ? (
-                      <span className="text-xs text-success/80 font-bold flex items-center gap-1 justify-end select-none">
-                        <Clock className="w-3.5 h-3.5" />
-                        Đang chạy
-                      </span>
-                    ) : (
-                      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleSetCurrentYear(row)}
-                          className="inline-flex items-center px-3 py-1.5 bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface rounded-xl text-xs font-semibold border border-outline-variant/40 transition-all cursor-pointer"
-                        >
-                          Kích hoạt
-                        </button>
-                      </div>
-                    )
-                  }
-                ];
-                return null; // logic container only
-              })()}
 
               {isLoadingYears ? (
                 <div className="space-y-2 animate-pulse">
@@ -751,7 +684,7 @@ export function Settings() {
               <form onSubmit={handleSubmitPassword(onChangePassword)} className="space-y-5 max-w-md">
                 <div className="p-4 rounded-2xl bg-warning-container/10 border border-warning-container/20 flex gap-3 text-xs text-warning leading-relaxed font-semibold">
                   <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                  Mật khẩu tài khoản đăng nhập chung hiện tại là Admin / 123456. Để phục vụ công việc của toàn trường, hãy chỉ đổi khi được cấp quyền.
+                  Đổi mật khẩu tài khoản sẽ ảnh hưởng đến toàn bộ người dùng. Hãy chỉ thay đổi khi được cấp quyền từ quản trị viên.
                 </div>
 
                 <Input

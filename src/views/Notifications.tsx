@@ -17,7 +17,7 @@ import {
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { toast } from "../stores/toastStore";
-import { ConfirmDialog, useSlidePanel } from "../components/ui";
+import { ConfirmDialog, useSlidePanel, ErrorState } from "../components/ui";
 import { NotificationForm } from "../components/forms/NotificationForm";
 import { NotificationDetailPanel } from "../components/details/NotificationDetailPanel";
 import { useAuthStore } from "../stores/authStore";
@@ -46,7 +46,7 @@ export function Notifications() {
   const classesList = classesResponse?.data?.data || [];
 
   // 2. Fetch notifications list
-  const { data: notificationsResponse, isLoading } = useQuery({
+  const { data: notificationsResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['notifications-list', selectedType, selectedStatus, search],
     queryFn: () => {
       const filters: Record<string, any> = {};
@@ -283,6 +283,8 @@ export function Notifications() {
             <div key={i} className="h-28 bg-surface border border-outline-variant/20 rounded-3xl animate-pulse" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState onRetry={refetch} />
       ) : notifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 border border-dashed border-outline-variant/60 rounded-3xl bg-surface-container-low/20">
           <Bell className="w-12 h-12 text-on-surface-variant/40 mb-3 animate-pulse" />

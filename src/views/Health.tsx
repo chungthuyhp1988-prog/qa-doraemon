@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Plus, 
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { useSlidePanel, Table, type TableColumn } from "../components/ui";
+import { useSlidePanel, Table, type TableColumn, ErrorState } from "../components/ui";
 import { HealthRecordForm } from "../components/forms/HealthRecordForm";
 import { HealthRecordDetailPanel } from "../components/details/HealthRecordDetailPanel";
 import { useAppStore } from "../stores/appStore";
@@ -39,12 +39,14 @@ export function Health() {
   const classesList = classesResponse?.data?.data || [];
 
   // Set default selected class filter
-  if (selectedClassId === "all" && classesList.length > 0) {
-    setSelectedClassId(classesList[0].id);
-  }
+  useEffect(() => {
+    if (selectedClassId === "all" && classesList.length > 0) {
+      setSelectedClassId(classesList[0].id);
+    }
+  }, [classesList]);
 
   // 2. Fetch students list with class details and their latest health record
-  const { data: studentsResponse, isLoading: isLoadingStudents, refetch: refetchStudents } = useQuery({
+  const { data: studentsResponse, isLoading: isLoadingStudents, isError: isErrorStudents, refetch: refetchStudents } = useQuery({
     queryKey: ['health-students-list-full', selectedClassId, search],
     queryFn: async () => {
       const filters: Record<string, any> = { status: 'active' };
@@ -275,6 +277,9 @@ export function Health() {
       </div>
 
       {/* Main Table view */}
+      {isErrorStudents ? (
+        <ErrorState onRetry={refetchStudents} />
+      ) : (
       <Table 
         className="rounded-2xl border border-outline-variant/30 shadow-sm bg-surface"
         columns={tableColumns} 
@@ -285,6 +290,7 @@ export function Health() {
         emptyTitle="Không tìm thấy dữ liệu sức khỏe"
         emptyDescription="Không có dữ liệu học sinh nào khớp với bộ lọc lớp học hoặc từ khóa tìm kiếm."
       />
+      )}
     </div>
   );
 }
