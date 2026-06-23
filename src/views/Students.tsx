@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { 
   Plus, 
   Eye, 
@@ -46,9 +46,13 @@ export function Students() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Reset page size on search or filter changes
+  // Reset pagination and scroll position on search or filter changes
   useEffect(() => {
     setPageSize(25);
+    const el = document.querySelector('.max-h-\\[850px\\]');
+    if (el) {
+      el.scrollTop = 0;
+    }
   }, [debouncedSearch, selectedGrade, selectedClassId, selectedStatus]);
 
   // 1. Fetch classes list for dropdown filters
@@ -99,11 +103,15 @@ export function Students() {
         },
         '*, classes(name, grade_level), guardians(*)'
       );
-    }
+    },
+    placeholderData: keepPreviousData
   });
 
   const studentsData = studentsResponse?.data?.data || [];
   const totalCount = studentsResponse?.data?.count || 0;
+
+  const isFetchingMore = isFetching && studentsData.length < totalCount && pageSize > 25;
+  const isRefetchingNewFilter = isFetching && !isFetchingMore;
 
   // Reset filters helper
   const handleResetFilters = () => {
@@ -582,13 +590,16 @@ export function Students() {
             </div>
           ) : (
             <Table
-              className="rounded-none border-0 bg-transparent"
+              className={cn(
+                "rounded-none border-0 bg-transparent transition-opacity duration-200",
+                isRefetchingNewFilter && "opacity-60 pointer-events-none"
+              )}
               columns={tableColumns}
               data={studentsData}
               rowKey={(row) => row.id}
               onRowClick={(row) => handleOpenDetail(row.id)}
               onScrollToBottom={handleScrollToBottom}
-              loadingMore={isFetching && studentsData.length < totalCount}
+              loadingMore={isFetchingMore}
             />
           )}
         </div>
