@@ -282,7 +282,7 @@ export function Nutrition() {
         <div className="flex flex-wrap gap-2">
           {isPrivileged && (
             <button
-              onClick={handleCloneLastWeek}
+              onClick={() => handleCloneLastWeek(false)}
               disabled={cloning}
               className="inline-flex items-center justify-center gap-2 bg-white hover:bg-surface-container border border-outline-variant/40 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-on-surface transition-all cursor-pointer disabled:opacity-50"
             >

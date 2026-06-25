@@ -56,7 +56,7 @@ export const HealthRecordDetailPanel: React.FC<HealthRecordDetailPanelProps> = (
     queryKey: ['student-health-info', studentId],
     queryFn: () => api.getById('students', studentId)
   });
-  const student = studentResponse?.data;
+  const student = studentResponse?.data as any;
 
   // 2. Fetch health records of selected student
   const { data: healthResponse, isLoading: isLoadingRecords } = useQuery({

@@ -43,7 +43,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
     queryKey: ['fee-detail', feeId],
     queryFn: () => api.getById('tuition_fees', feeId, '*, students(id, full_name, student_code, classes(name), guardians(*)), users(full_name)')
   });
-  const fee = feeResponse?.data;
+  const fee = feeResponse?.data as any;
 
   const handleEdit = () => {
     if (!fee) return;

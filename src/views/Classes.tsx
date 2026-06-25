@@ -268,7 +268,7 @@ export function Classes() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4 pt-6">
       {/* Header section */}
       <div className="flex justify-between items-center">
         <div>
@@ -369,17 +369,17 @@ export function Classes() {
                       className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between overflow-hidden cursor-pointer"
                     >
                       {/* Hover actions */}
-                      <div className="absolute top-4 right-4 flex gap-1 bg-surface-container-highest dark:bg-slate-800 backdrop-blur-sm p-1 rounded-xl border border-outline-variant shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none" onClick={(e) => e.stopPropagation()}>
+                      <div className="absolute top-4 right-4 flex gap-1.5 bg-white border border-outline-variant/60 shadow-md p-1 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 select-none" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleOpenDetail(c.id)}
-                          className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-on-surface-variant hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                           title="Xem chi tiết"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleEditClass(c)}
-                          className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-on-surface-variant hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
                           title="Sửa lớp"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -389,7 +389,7 @@ export function Classes() {
                             setSelectedClass(c);
                             setIsDeleteDialogOpen(true);
                           }}
-                          className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-on-surface-variant hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Xóa lớp"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

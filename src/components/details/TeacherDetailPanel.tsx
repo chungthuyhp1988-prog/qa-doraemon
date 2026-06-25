@@ -43,7 +43,7 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
     queryKey: ['teacher-detail', teacherId],
     queryFn: () => api.getById('users', teacherId, '*, class_teachers(id, class_id, classes(name, grade_level))')
   });
-  const teacher = teacherResponse?.data;
+  const teacher = teacherResponse?.data as any;
 
   const handleEdit = () => {
     if (!teacher) return;
@@ -184,14 +184,38 @@ export const TeacherDetailPanel: React.FC<TeacherDetailPanelProps> = ({
                 {teacher.full_name}
               </h2>
               {getRoleBadge(teacher.role, teacher.job_title)}
-              <span className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border tracking-wider",
-                teacher.is_active 
-                  ? "bg-green-50 text-green-700 border-green-200" 
-                  : "bg-gray-50 text-gray-600 border-gray-200"
-              )}>
-                {teacher.is_active ? 'Đang làm' : 'Đã nghỉ'}
-              </span>
+              {(() => {
+                const workStatus = teacher.work_status || (teacher.is_active === false ? 'inactive' : 'active');
+                let badgeClass = "bg-gray-50 text-gray-600 border-gray-200";
+                let text = "Đã nghỉ việc";
+                switch (workStatus) {
+                  case 'active':
+                    badgeClass = "bg-green-50 text-green-700 border-green-200";
+                    text = "Đang làm việc";
+                    break;
+                  case 'maternity_leave':
+                    badgeClass = "bg-purple-50 text-purple-700 border-purple-200";
+                    text = "Nghỉ thai sản";
+                    break;
+                  case 'on_leave':
+                    badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+                    text = "Nghỉ phép";
+                    break;
+                  case 'inactive':
+                  default:
+                    badgeClass = "bg-red-50 text-red-700 border-red-200";
+                    text = "Đã nghỉ việc";
+                    break;
+                }
+                return (
+                  <span className={cn(
+                    "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border tracking-wider",
+                    badgeClass
+                  )}>
+                    {text}
+                  </span>
+                );
+              })()}
             </div>
             <p className="text-[12px] text-on-surface-variant font-medium mt-1.5 select-all">
               {teacher.email}

@@ -50,7 +50,7 @@ export const EvaluationDetailPanel: React.FC<EvaluationDetailPanelProps> = ({
     queryKey: ['student-eval-profile', studentId],
     queryFn: () => api.getById('students', studentId)
   });
-  const student = studentResponse?.data;
+  const student = studentResponse?.data as any;
 
   // 2. Fetch student evaluations
   const { data: evaluationsResponse, isLoading: isLoadingEvals } = useQuery({

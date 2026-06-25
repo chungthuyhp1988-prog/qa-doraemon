@@ -115,7 +115,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
     queryKey: ['class-detail', classId],
     queryFn: () => api.getById('classes', classId, '*, class_teachers(id, teacher_id, is_homeroom, users(full_name))')
   });
-  const activeClass = classResponse?.data;
+  const activeClass = classResponse?.data as any;
 
   // 2. Fetch students in class
   const { data: studentsResponse, isLoading: isLoadingStudents, refetch: refetchStudents } = useQuery({
@@ -155,7 +155,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
     ),
     enabled: !!classId && activeTab === 'attendance',
   });
-  const attendanceRecords = attendanceResponse?.data?.data || [];
+  const attendanceRecords = (attendanceResponse?.data?.data || []) as any[];
 
   // Invalidate when tab changes
   useEffect(() => {

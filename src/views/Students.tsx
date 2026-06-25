@@ -70,13 +70,15 @@ export function Students() {
     queryFn: async () => {
       const filters: Record<string, any> = {};
       
-      // Filter by status if specified
-      if (selectedStatus !== "all") {
+      // Filter by status based on active tab
+      if (selectedStatus === 'waiting' || selectedStatus === 'future') {
+        filters.status = 'waiting';
+      } else {
         filters.status = selectedStatus;
       }
       
-      // Filter by specific class if selected
-      if (selectedClassId !== "all") {
+      // Filter by specific class if selected (only applicable for active and registered tabs)
+      if (selectedClassId !== "all" && (selectedStatus === 'active' || selectedStatus === 'registered')) {
         filters.class_id = selectedClassId;
       }
 
@@ -93,8 +95,26 @@ export function Students() {
     placeholderData: keepPreviousData
   });
 
-  const studentsData = studentsResponse?.data?.data || [];
-  const totalCount = studentsResponse?.data?.count || 0;
+  const rawStudentsData = studentsResponse?.data?.data || [];
+
+  // Client-side filtering for waiting and future lists based on birth year
+  const studentsData = (rawStudentsData as any[]).filter((student: any) => {
+    if (selectedStatus === 'waiting') {
+      if (!student.date_of_birth) return true;
+      const birthYear = new Date(student.date_of_birth).getFullYear();
+      return birthYear === 2023 || birthYear === 2024;
+    }
+    if (selectedStatus === 'future') {
+      if (!student.date_of_birth) return false;
+      const birthYear = new Date(student.date_of_birth).getFullYear();
+      return birthYear === 2025 || student.target_school_year === '2027-2028';
+    }
+    return true;
+  });
+
+  const totalCount = selectedStatus === 'waiting' || selectedStatus === 'future' 
+    ? studentsData.length 
+    : (studentsResponse?.data?.count || 0);
 
   const isFetchingMore = isFetching && studentsData.length < totalCount && pageSize > 25;
   const isRefetchingNewFilter = isFetching && !isFetchingMore;
@@ -136,10 +156,12 @@ export function Students() {
   const handleExportExcel = async () => {
     try {
       const filters: Record<string, any> = {};
-      if (selectedStatus !== "all") {
+      if (selectedStatus === 'waiting' || selectedStatus === 'future') {
+        filters.status = 'waiting';
+      } else {
         filters.status = selectedStatus;
       }
-      if (selectedClassId !== "all") {
+      if (selectedClassId !== "all" && (selectedStatus === 'active' || selectedStatus === 'registered')) {
         filters.class_id = selectedClassId;
       }
 
@@ -153,10 +175,35 @@ export function Students() {
         '*, classes(name), guardians(*)'
       );
 
-      const exportData = (res.data?.data || []).map((row: any) => {
+      const rawData = res.data?.data || [];
+      const filteredData = rawData.filter((student: any) => {
+        if (selectedStatus === 'waiting') {
+          if (!student.date_of_birth) return true;
+          const birthYear = new Date(student.date_of_birth).getFullYear();
+          return birthYear === 2023 || birthYear === 2024;
+        }
+        if (selectedStatus === 'future') {
+          if (!student.date_of_birth) return false;
+          const birthYear = new Date(student.date_of_birth).getFullYear();
+          return birthYear === 2025 || student.target_school_year === '2027-2028';
+        }
+        return true;
+      });
+
+      const exportData = filteredData.map((row: any) => {
         const father = row.guardians?.find((g: any) => g.relationship === 'cha');
         const mother = row.guardians?.find((g: any) => g.relationship === 'me');
         const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+
+        let statusText = 'Đang học';
+        if (row.status === 'registered') statusText = 'Đã ghi danh, chưa nhập học';
+        else if (row.status === 'waiting') {
+          const birthYear = row.date_of_birth ? new Date(row.date_of_birth).getFullYear() : 0;
+          statusText = (birthYear === 2025 || row.target_school_year === '2027-2028') ? 'Đăng ký năm học tiếp theo' : 'Danh sách chờ năm học hiện tại';
+        }
+        else if (row.status === 'suspended') statusText = 'Tạm nghỉ';
+        else if (row.status === 'graduated') statusText = 'Đã tốt nghiệp';
+        else if (row.status === 'transferred') statusText = 'Đã chuyển trường';
 
         return {
           student_code: row.student_code,
@@ -166,12 +213,17 @@ export function Students() {
           address: row.address || '',
           enrollment_date: row.enrollment_date ? new Date(row.enrollment_date).toLocaleDateString('vi-VN') : '',
           class_name: row.classes?.name || 'Chưa xếp lớp',
+          status: statusText,
+          priority_status: row.priority_status || '',
+          registration_date: row.registration_date ? new Date(row.registration_date).toLocaleDateString('vi-VN') : '',
+          target_school_year: row.target_school_year || '',
           father_name: father?.full_name || '',
           father_phone: father?.phone || '',
           mother_name: mother?.full_name || '',
           mother_phone: mother?.phone || '',
           guardian_name: primaryGuardian?.full_name || '',
           guardian_phone: primaryGuardian?.phone || '',
+          guardian_citizen_id: primaryGuardian?.citizen_id || '',
           relationship: primaryGuardian ? (primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'Khác') : ''
         };
       });
@@ -184,12 +236,17 @@ export function Students() {
         { key: 'address', label: 'Địa chỉ' },
         { key: 'enrollment_date', label: 'Ngày nhập học' },
         { key: 'class_name', label: 'Lớp' },
+        { key: 'status', label: 'Trạng thái học sinh' },
+        { key: 'priority_status', label: 'Đối tượng ưu tiên' },
+        { key: 'registration_date', label: 'Ngày đăng ký chờ' },
+        { key: 'target_school_year', label: 'Năm học đăng ký' },
         { key: 'father_name', label: 'Họ tên bố' },
         { key: 'father_phone', label: 'SĐT bố' },
         { key: 'mother_name', label: 'Họ tên mẹ' },
         { key: 'mother_phone', label: 'SĐT mẹ' },
         { key: 'guardian_name', label: 'Phụ huynh chính' },
         { key: 'guardian_phone', label: 'SĐT phụ huynh' },
+        { key: 'guardian_citizen_id', label: 'CCCD phụ huynh' },
         { key: 'relationship', label: 'Quan hệ' }
       ];
 
@@ -222,10 +279,16 @@ export function Students() {
       const rawEnrollDate = row['Ngày nhập học'] || new Date().toISOString();
       const address = row['Địa chỉ'];
       const className = row['Lớp'];
+      
+      const rawStatus = row['Trạng thái'] || row['Trạng thái học sinh'];
+      const priorityStatus = row['Đối tượng ưu tiên'] || row['Ưu tiên'];
+      const rawRegDate = row['Ngày đăng ký chờ'] || row['Ngày đăng ký'];
+      const targetSchoolYear = row['Năm học đăng ký'] || row['Năm học'];
 
       const dob = parseExcelDate(rawDob);
       const gender = parseGender(rawGender);
       const enrollDate = parseExcelDate(rawEnrollDate);
+      const regDate = rawRegDate ? parseExcelDate(rawRegDate) : null;
 
       // Tìm kiếm lớp tương ứng
       let classId = null;
@@ -239,11 +302,26 @@ export function Students() {
       // Phụ huynh
       const fatherName = row['Họ tên bố'];
       const fatherPhone = row['SĐT bố'] || row['Số điện thoại bố'];
+      const fatherCitizenId = row['CCCD bố'] || row['Số CCCD bố'];
+      
       const motherName = row['Họ tên mẹ'];
       const motherPhone = row['SĐT mẹ'] || row['Số điện thoại mẹ'];
+      const motherCitizenId = row['CCCD mẹ'] || row['Số CCCD mẹ'];
+      
+      const parentCitizenId = row['CCCD phụ huynh'] || row['CCCD bố/mẹ'];
 
       const randNum = Math.floor(1000 + Math.random() * 9000);
       const studentCode = row['Mã học sinh'] || `HS${randNum}`;
+
+      let status: 'active' | 'registered' | 'waiting' | 'suspended' | 'graduated' | 'transferred' = 'active';
+      if (rawStatus) {
+        const s = String(rawStatus).toLowerCase().trim();
+        if (s.includes('đang học') || s === 'active') status = 'active';
+        else if (s.includes('ghi danh') || s.includes('chưa nhập học') || s === 'registered') status = 'registered';
+        else if (s.includes('chờ') || s === 'waiting') status = 'waiting';
+        else if (s.includes('tốt nghiệp') || s === 'graduated') status = 'graduated';
+        else if (s.includes('chuyển trường') || s === 'transferred') status = 'transferred';
+      }
 
       try {
         const studentId = crypto.randomUUID();
@@ -259,7 +337,10 @@ export function Students() {
           gender: gender,
           address: address ? address.trim() : null,
           enrollment_date: enrollDate,
-          status: 'active' as const,
+          status: status,
+          priority_status: priorityStatus ? String(priorityStatus).trim() : null,
+          registration_date: regDate,
+          target_school_year: targetSchoolYear ? String(targetSchoolYear).trim() : null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -278,6 +359,7 @@ export function Students() {
             relationship: 'me',
             phone: String(motherPhone).trim(),
             is_primary: true,
+            citizen_id: motherCitizenId ? String(motherCitizenId).trim() : (parentCitizenId ? String(parentCitizenId).trim() : null),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
@@ -291,6 +373,7 @@ export function Students() {
             relationship: 'cha',
             phone: String(fatherPhone).trim(),
             is_primary: guardiansPayload.length === 0,
+            citizen_id: fatherCitizenId ? String(fatherCitizenId).trim() : (guardiansPayload.length === 0 && parentCitizenId ? String(parentCitizenId).trim() : null),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
@@ -347,74 +430,204 @@ export function Students() {
     });
   };
 
-  // Define Table Columns
-  const tableColumns: TableColumn<any>[] = [
-    {
-      key: "stt",
-      header: "STT",
-      width: "60px",
-      align: "center",
-      render: (_row: any, index: number) => (
-        <span className="text-on-surface-variant font-semibold text-[13px]">
-          {index + 1}
-        </span>
-      )
-    },
-    {
-      key: "full_name",
-      header: "Học sinh",
-      sortable: true,
-      render: (row: any) => (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-[14px] font-bold text-primary border border-primary/20 shrink-0">
-            {row.profile_image_url ? (
-              <img src={row.profile_image_url} alt={row.full_name} className="w-full h-full object-cover" />
-            ) : (
-              row.full_name.substring(0, 1)
-            )}
-          </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-on-surface truncate">{row.full_name}</div>
-            <div className="text-[12px] text-on-surface-variant font-medium">{row.student_code}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: "classes",
-      header: "Lớp",
-      sortable: true,
-      render: (row: any) => (
-        <span className={row.classes?.name ? "font-semibold text-on-surface" : "text-on-surface-variant font-medium italic"}>
-          {row.classes?.name || "Chưa xếp lớp"}
-        </span>
-      )
-    },
-    {
-      key: "parent",
-      header: "Phụ huynh chính",
-      render: (row: any) => {
-        const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
-        const parentName = primaryGuardian 
-          ? `${primaryGuardian.full_name} (${primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'PH'})` 
-          : '—';
-        const parentPhone = primaryGuardian ? primaryGuardian.phone : '—';
-        return (
-          <div>
-            <div className="text-on-surface font-semibold">{parentName}</div>
-            <div className="text-[12px] text-on-surface-variant font-medium flex items-center gap-1.5">
-              <Phone className="w-3 h-3 text-primary" /> {parentPhone}
+  // Define Dynamic Table Columns based on active tab
+  const getTableColumns = (): TableColumn<any>[] => {
+    const columns: TableColumn<any>[] = [
+      {
+        key: "stt",
+        header: "STT",
+        width: "60px",
+        align: "center",
+        render: (_row: any, index: number) => (
+          <span className="text-on-surface-variant font-semibold text-[13px]">
+            {index + 1}
+          </span>
+        )
+      },
+      {
+        key: "full_name",
+        header: "Học sinh",
+        sortable: true,
+        render: (row: any) => (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-[14px] font-bold text-primary border border-primary/20 shrink-0">
+              {row.profile_image_url ? (
+                <img src={row.profile_image_url} alt={row.full_name} className="w-full h-full object-cover" />
+              ) : (
+                row.full_name.substring(0, 1)
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-on-surface truncate">{row.full_name}</div>
+              <div className="text-[12px] text-on-surface-variant font-medium flex items-center gap-2">
+                <span>{row.student_code}</span>
+                <span>•</span>
+                <span>{row.gender === 'female' ? 'Nữ' : 'Nam'}</span>
+              </div>
             </div>
           </div>
-        );
+        )
       }
-    },
-    {
-      key: "status",
-      header: "Trạng thái",
-      render: (row: any) => getStatusBadge(row.status)
+    ];
+
+    if (selectedStatus === 'active' || selectedStatus === 'registered') {
+      columns.push(
+        {
+          key: "classes",
+          header: "Lớp",
+          sortable: true,
+          render: (row: any) => (
+            <span className={row.classes?.name ? "font-semibold text-on-surface" : "text-on-surface-variant font-medium italic"}>
+              {row.classes?.name || "Chưa xếp lớp"}
+            </span>
+          )
+        },
+        {
+          key: "parent",
+          header: "Phụ huynh chính",
+          render: (row: any) => {
+            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+            const parentName = primaryGuardian 
+              ? `${primaryGuardian.full_name} (${primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'PH'})` 
+              : '—';
+            const parentPhone = primaryGuardian ? primaryGuardian.phone : '—';
+            return (
+              <div>
+                <div className="text-on-surface font-semibold">{parentName}</div>
+                <div className="text-[12px] text-on-surface-variant font-medium flex items-center gap-1.5">
+                  <Phone className="w-3 h-3 text-primary" /> {parentPhone}
+                </div>
+              </div>
+            );
+          }
+        },
+        {
+          key: "address",
+          header: "Địa chỉ",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[220px]" title={row.address}>
+              {row.address || "—"}
+            </span>
+          )
+        }
+      );
+    } else if (selectedStatus === 'waiting' || selectedStatus === 'future') {
+      columns.push(
+        {
+          key: "date_of_birth",
+          header: "Ngày sinh",
+          render: (row: any) => (
+            <span className="text-on-surface font-semibold text-[13px]">
+              {row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString('vi-VN') : '—'}
+            </span>
+          )
+        },
+        {
+          key: "parent_name" as any,
+          header: "Bố / Mẹ",
+          render: (row: any) => {
+            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+            const name = primaryGuardian ? primaryGuardian.full_name : '—';
+            const relation = primaryGuardian 
+              ? (primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'Người giám hộ')
+              : '—';
+            return (
+              <div>
+                <span className="font-semibold text-on-surface">{name}</span>
+                <span className="text-[11px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded ml-2 font-medium">{relation}</span>
+              </div>
+            );
+          }
+        },
+        {
+          key: "parent_citizen_id" as any,
+          header: "CCCD Bố/Mẹ",
+          render: (row: any) => {
+            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+            return (
+              <span className="text-on-surface-variant font-medium text-[13px] font-mono">
+                {primaryGuardian?.citizen_id || '—'}
+              </span>
+            );
+          }
+        },
+        {
+          key: "parent_phone" as any,
+          header: "SĐT (Zalo)",
+          render: (row: any) => {
+            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+            return primaryGuardian?.phone ? (
+              <a href={`tel:${primaryGuardian.phone}`} className="text-primary hover:underline font-semibold text-[13px] flex items-center gap-1">
+                <Phone className="w-3 h-3 text-primary" /> {primaryGuardian.phone}
+              </a>
+            ) : <span className="text-on-surface-variant/40">—</span>;
+          }
+        },
+        {
+          key: "registration_date" as any,
+          header: "Ngày đăng ký",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px]">
+              {row.registration_date ? new Date(row.registration_date).toLocaleDateString('vi-VN') : '—'}
+            </span>
+          )
+        },
+        {
+          key: "priority_status" as any,
+          header: "Đối tượng ưu tiên",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[150px]" title={row.priority_status}>
+              {row.priority_status || 'Không'}
+            </span>
+          )
+        }
+      );
+    } else {
+      // Graduated or Transferred
+      columns.push(
+        {
+          key: "classes",
+          header: "Lớp cuối",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px]">
+              {row.classes?.name || "—"}
+            </span>
+          )
+        },
+        {
+          key: "date_of_birth",
+          header: "Ngày sinh",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px]">
+              {row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString('vi-VN') : '—'}
+            </span>
+          )
+        },
+        {
+          key: "updated_at",
+          header: "Ngày cập nhật",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px]">
+              {row.updated_at ? new Date(row.updated_at).toLocaleDateString('vi-VN') : '—'}
+            </span>
+          )
+        },
+        {
+          key: "address",
+          header: "Địa chỉ",
+          render: (row: any) => (
+            <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[220px]" title={row.address}>
+              {row.address || "—"}
+            </span>
+          )
+        }
+      );
     }
-  ];
+
+    return columns;
+  };
+
+  const tableColumns = getTableColumns();
 
   const handleScrollToBottom = () => {
     if (!isFetching && studentsData.length < totalCount) {
@@ -423,7 +636,7 @@ export function Students() {
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
+    <div className="animate-in fade-in duration-300 space-y-4 pt-6">
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
@@ -460,6 +673,34 @@ export function Students() {
         </div>
       </div>
 
+      {/* Navigation Tabs for Categories */}
+      <div className="flex border-b border-outline-variant/30 overflow-x-auto gap-1 scrollbar-none mb-2 bg-surface-container-lowest p-1 rounded-xl">
+        {[
+          { value: 'active', label: 'Đang học' },
+          { value: 'registered', label: 'Đã ghi danh' },
+          { value: 'waiting', label: 'Danh sách chờ' },
+          { value: 'graduated', label: 'Đã tốt nghiệp' },
+          { value: 'transferred', label: 'Đã chuyển trường' },
+          { value: 'future', label: 'Đăng ký năm tới' }
+        ].map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => {
+              setSelectedStatus(tab.value);
+              setSelectedClassId("all"); // Reset class filter when switching tabs
+            }}
+            className={cn(
+              "px-4 py-2 font-bold text-[13px] rounded-lg transition-all whitespace-nowrap cursor-pointer",
+              selectedStatus === tab.value
+                ? "bg-primary text-on-primary shadow-xs"
+                : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters & Search */}
       <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-xs flex flex-wrap gap-3.5 items-center">
         {/* Search Input */}
@@ -474,36 +715,24 @@ export function Students() {
           />
         </div>
 
-
-        {/* Class Filter */}
-        <select 
-          value={selectedClassId}
-          onChange={(e) => setSelectedClassId(e.target.value)}
-          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
-        >
-          <option value="all">Tất cả các lớp</option>
-          {filteredClassesList.map((c: any) => {
-            const gradeName = getGradeName(c.grade_level);
-            return (
-              <option key={c.id} value={c.id}>
-                {c.name}{gradeName ? ` (${gradeName})` : ''}
-              </option>
-            );
-          })}
-        </select>
-
-        {/* Status Filter */}
-        <select 
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">Đang học</option>
-          <option value="suspended">Tạm nghỉ</option>
-          <option value="graduated">Đã tốt nghiệp</option>
-          <option value="transferred">Đã chuyển trường</option>
-        </select>
+        {/* Class Filter - Only visible for Active and Registered tabs */}
+        {(selectedStatus === 'active' || selectedStatus === 'registered') && (
+          <select 
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId(e.target.value)}
+            className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+          >
+            <option value="all">Tất cả các lớp</option>
+            {filteredClassesList.map((c: any) => {
+              const gradeName = getGradeName(c.grade_level);
+              return (
+                <option key={c.id} value={c.id}>
+                  {c.name}{gradeName ? ` (${gradeName})` : ''}
+                </option>
+              );
+            })}
+          </select>
+        )}
 
         <button 
           onClick={handleResetFilters}

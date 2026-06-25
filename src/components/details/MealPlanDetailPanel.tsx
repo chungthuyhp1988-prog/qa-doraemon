@@ -41,7 +41,7 @@ export const MealPlanDetailPanel: React.FC<MealPlanDetailPanelProps> = ({
     queryKey: ['meal-plan-detail', mealPlanId],
     queryFn: () => api.getById('meal_plans', mealPlanId, '*, classes(name), users(full_name)')
   });
-  const mealPlan = mealResponse?.data;
+  const mealPlan = mealResponse?.data as any;
 
   const handleEdit = () => {
     if (!mealPlan) return;

@@ -26,6 +26,7 @@ const guardianSchema = z.object({
   phone: z.string().min(10, 'Số điện thoại tối thiểu 10 số').max(11, 'Số điện thoại tối đa 11 số'),
   email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   occupation: z.string().optional().nullable(),
+  citizen_id: z.string().optional().nullable().or(z.literal('')),
   is_primary: z.boolean().default(false),
 });
 
@@ -37,10 +38,13 @@ const studentFormSchema = z.object({
   class_id: z.string().nullable().optional().or(z.literal('')),
   address: z.string().optional().nullable(),
   enrollment_date: z.string().optional(),
-  status: z.enum(['active', 'suspended', 'graduated', 'transferred']).default('active'),
+  status: z.enum(['active', 'registered', 'waiting', 'suspended', 'graduated', 'transferred']).default('active'),
   profile_image_url: z.string().nullable().optional(),
   medical_notes: z.string().optional().nullable(),
   allergies: z.string().optional().nullable(),
+  priority_status: z.string().optional().nullable(),
+  registration_date: z.string().optional().nullable(),
+  target_school_year: z.string().optional().nullable(),
   guardians: z.array(guardianSchema).min(1, 'Phải có ít nhất một phụ huynh/người giám hộ'),
 });
 
@@ -77,6 +81,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({
     profile_image_url: student?.profile_image_url || '',
     medical_notes: student?.medical_notes || '',
     allergies: student?.allergies || '',
+    priority_status: student?.priority_status || '',
+    registration_date: student?.registration_date ? student.registration_date.split('T')[0] : '',
+    target_school_year: student?.target_school_year || '',
     guardians: student?.guardians?.map((g: any) => ({
       id: g.id,
       full_name: g.full_name,
@@ -84,8 +91,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       phone: g.phone,
       email: g.email || '',
       occupation: g.occupation || '',
+      citizen_id: g.citizen_id || '',
       is_primary: g.is_primary || false,
-    })) || [{ full_name: '', relationship: 'me', phone: '', email: '', occupation: '', is_primary: true }],
+    })) || [{ full_name: '', relationship: 'me', phone: '', email: '', occupation: '', citizen_id: '', is_primary: true }],
   };
 
   const {
@@ -123,6 +131,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         profile_image_url: values.profile_image_url || null,
         medical_notes: values.medical_notes || null,
         allergies: values.allergies || null,
+        priority_status: values.priority_status || null,
+        registration_date: values.registration_date || null,
+        target_school_year: values.target_school_year || null,
       };
 
       if (student?.id) {
@@ -153,6 +164,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
             phone: cg.phone,
             email: cg.email || null,
             occupation: cg.occupation || null,
+            citizen_id: cg.citizen_id || null,
             is_primary: cg.is_primary,
           };
 
@@ -178,6 +190,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
           phone: g.phone,
           email: g.email || null,
           occupation: g.occupation || null,
+          citizen_id: g.citizen_id || null,
           is_primary: g.is_primary,
         }));
 
@@ -299,19 +312,50 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                   {...register('enrollment_date')}
                 />
 
-                {student && (
-                  <Select
-                    label="Trạng thái"
-                    options={[
-                      { value: 'active', label: 'Đang học' },
-                      { value: 'suspended', label: 'Tạm nghỉ' },
-                      { value: 'graduated', label: 'Tốt nghiệp' },
-                      { value: 'transferred', label: 'Chuyển trường' },
-                    ]}
-                    error={errors.status?.message}
-                    {...register('status')}
-                  />
-                )}
+                <Select
+                  label="Trạng thái học sinh"
+                  options={[
+                    { value: 'active', label: 'Đang học' },
+                    { value: 'registered', label: 'Đã ghi danh (Chưa nhập học)' },
+                    { value: 'waiting', label: 'Đăng ký chờ' },
+                    { value: 'suspended', label: 'Tạm nghỉ' },
+                    { value: 'graduated', label: 'Tốt nghiệp' },
+                    { value: 'transferred', label: 'Chuyển trường' },
+                  ]}
+                  error={errors.status?.message}
+                  {...register('status')}
+                />
+
+                {(() => {
+                  const currentStatus = watch('status');
+                  if (currentStatus === 'waiting' || currentStatus === 'registered') {
+                    return (
+                      <>
+                        <Input
+                          type="date"
+                          label={currentStatus === 'waiting' ? "Ngày đăng ký chờ" : "Ngày ghi danh"}
+                          error={errors.registration_date?.message}
+                          {...register('registration_date')}
+                        />
+                        <Input
+                          label="Năm học đăng ký"
+                          placeholder="Ví dụ: 2027-2028..."
+                          error={errors.target_school_year?.message}
+                          {...register('target_school_year')}
+                        />
+                        <div className="sm:col-span-2">
+                          <Input
+                            label="Đối tượng ưu tiên"
+                            placeholder="Ví dụ: Con thương binh, gia đình chính sách, có anh chị học cùng trường..."
+                            error={errors.priority_status?.message}
+                            {...register('priority_status')}
+                          />
+                        </div>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <div className={student ? "sm:col-span-1" : "sm:col-span-2"}>
                   <Input
@@ -357,7 +401,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                 </Button>
               </div>
 
-              <div className="space-y-4 max-h-[45vh] overflow-y-auto pr-1">
+              <div className="space-y-4 pr-1">
                 {fields.map((field, index) => {
                   const isPrimary = watch(`guardians.${index}.is_primary`);
                   
@@ -437,15 +481,20 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                           {...register(`guardians.${index}.email` as const)}
                         />
 
-                        <div className="sm:col-span-2">
-                          <Input
-                            label="Nghề nghiệp"
-                            placeholder="Ví dụ: Công nhân, Giáo viên, Kinh doanh..."
-                            leftIcon={<Briefcase />}
-                            error={errors.guardians?.[index]?.occupation?.message}
-                            {...register(`guardians.${index}.occupation` as const)}
-                          />
-                        </div>
+                        <Input
+                          label="Nghề nghiệp"
+                          placeholder="Ví dụ: Công nhân, Giáo viên..."
+                          leftIcon={<Briefcase />}
+                          error={errors.guardians?.[index]?.occupation?.message}
+                          {...register(`guardians.${index}.occupation` as const)}
+                        />
+
+                        <Input
+                          label="Căn cước công dân (CCCD)"
+                          placeholder="Nhập số CCCD..."
+                          error={errors.guardians?.[index]?.citizen_id?.message}
+                          {...register(`guardians.${index}.citizen_id` as const)}
+                        />
                       </div>
                     </div>
                   );

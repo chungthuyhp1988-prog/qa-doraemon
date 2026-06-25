@@ -42,7 +42,7 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
     queryKey: ['student-detail', studentId],
     queryFn: () => api.getById('students', studentId, '*, classes(name, grade_level), guardians(*)')
   });
-  const student = studentResponse?.data;
+  const student = studentResponse?.data as any;
 
   // 2. Fetch tuition fees for finance tab
   const { data: feesResponse, isLoading: isLoadingFees } = useQuery({
@@ -131,6 +131,10 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
     switch (status) {
       case 'active':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-green-50 text-green-700 border border-green-200 font-bold uppercase tracking-wider">Đang học</span>;
+      case 'registered':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-purple-50 text-purple-700 border border-purple-200 font-bold uppercase tracking-wider">Đã ghi danh</span>;
+      case 'waiting':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-bold uppercase tracking-wider">Đăng ký chờ</span>;
       case 'suspended':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-bold uppercase tracking-wider">Tạm nghỉ</span>;
       case 'graduated':
@@ -172,22 +176,20 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
         
         {/* Actions */}
         <div className="flex items-center gap-1.5">
-          <Button
+          <button
             onClick={handleEdit}
-            variant="outline"
-            size="sm"
-            className="rounded-xl flex items-center gap-1 cursor-pointer text-xs"
+            className="w-8 h-8 border border-outline-variant/60 rounded-xl flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+            title="Chỉnh sửa hồ sơ"
           >
-            <Edit2 className="w-3.5 h-3.5" /> Sửa
-          </Button>
-          <Button
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={() => setIsDeleteDialogOpen(true)}
-            variant="outline"
-            size="sm"
-            className="rounded-xl border-red-200 hover:bg-red-50 hover:border-red-300 text-red-600 flex items-center gap-1 cursor-pointer text-xs"
+            className="w-8 h-8 border border-rose-200 rounded-xl flex items-center justify-center text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition-colors cursor-pointer"
+            title="Xóa học sinh"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Xóa
-          </Button>
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -239,6 +241,24 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
                   <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">Ngày nhập học</div>
                   <div className="text-on-surface font-semibold">{formatDate(student.enrollment_date)}</div>
                 </div>
+                {(student.status === 'waiting' || student.status === 'registered') && (
+                  <>
+                    <div>
+                      <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">
+                        {student.status === 'waiting' ? 'Ngày đăng ký chờ' : 'Ngày ghi danh'}
+                      </div>
+                      <div className="text-on-surface font-semibold">{formatDate(student.registration_date) || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">Năm học đăng ký</div>
+                      <div className="text-on-surface font-semibold">{student.target_school_year || '—'}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">Đối tượng ưu tiên</div>
+                      <div className="text-on-surface font-semibold">{student.priority_status || 'Không'}</div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             
@@ -265,6 +285,11 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
                       <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
                       Điện thoại: {guardian.phone}
                     </div>
+                    {guardian.citizen_id && (
+                      <div className="text-[12px] text-on-surface-variant/80 font-medium pl-5">
+                        CCCD / CMND: <span className="font-mono">{guardian.citizen_id}</span>
+                      </div>
+                    )}
                     {guardian.email && (
                       <div className="text-[12px] text-on-surface-variant/80 font-medium pl-5">
                         Email: {guardian.email}

@@ -19,7 +19,7 @@
 export type UserRole = 'admin' | 'teacher' | 'staff';
 
 /** Trạng thái học sinh */
-export type StudentStatus = 'active' | 'suspended' | 'graduated' | 'transferred';
+export type StudentStatus = 'active' | 'registered' | 'waiting' | 'suspended' | 'graduated' | 'transferred';
 
 /** Trạng thái điểm danh */
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'sick' | 'excused';
@@ -152,6 +152,7 @@ export interface UserRow {
   avatar_url: string | null;
   job_title: string | null;
   is_active: boolean;
+  work_status: 'active' | 'maternity_leave' | 'inactive' | 'on_leave';
   created_at: string;
   updated_at: string;
 }
@@ -166,6 +167,7 @@ export interface UserInsert {
   avatar_url?: string | null;
   job_title?: string | null;
   is_active?: boolean;
+  work_status?: 'active' | 'maternity_leave' | 'inactive' | 'on_leave';
   created_at?: string;
   updated_at?: string;
 }
@@ -179,6 +181,7 @@ export interface UserUpdate {
   avatar_url?: string | null;
   job_title?: string | null;
   is_active?: boolean;
+  work_status?: 'active' | 'maternity_leave' | 'inactive' | 'on_leave';
   updated_at?: string;
 }
 
@@ -281,6 +284,9 @@ export interface StudentRow {
   profile_image_url: string | null;
   medical_notes: string | null;
   allergies: string | null;
+  priority_status: string | null;
+  registration_date: string | null;
+  target_school_year: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -299,6 +305,9 @@ export interface StudentInsert {
   profile_image_url?: string | null;
   medical_notes?: string | null;
   allergies?: string | null;
+  priority_status?: string | null;
+  registration_date?: string | null;
+  target_school_year?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -317,6 +326,9 @@ export interface StudentUpdate {
   profile_image_url?: string | null;
   medical_notes?: string | null;
   allergies?: string | null;
+  priority_status?: string | null;
+  registration_date?: string | null;
+  target_school_year?: string | null;
   updated_at?: string;
 }
 
@@ -335,6 +347,7 @@ export interface GuardianRow {
   address: string | null;
   occupation: string | null;
   is_primary: boolean;
+  citizen_id: string | null;
   user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -350,6 +363,7 @@ export interface GuardianInsert {
   address?: string | null;
   occupation?: string | null;
   is_primary?: boolean;
+  citizen_id?: string | null;
   user_id?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -365,6 +379,7 @@ export interface GuardianUpdate {
   address?: string | null;
   occupation?: string | null;
   is_primary?: boolean;
+  citizen_id?: string | null;
   user_id?: string | null;
   updated_at?: string;
 }

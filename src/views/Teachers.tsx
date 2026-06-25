@@ -113,10 +113,8 @@ export function Teachers() {
     queryFn: async () => {
       const filters: Record<string, any> = {};
       
-      // Filter by active status
-      if (selectedStatus !== "all") {
-        filters.is_active = selectedStatus === "active";
-      }
+      // Filter by work status
+      filters.work_status = selectedStatus;
       
       // Filter by specific class if selected
       if (selectedClassId !== "all") {
@@ -169,7 +167,21 @@ export function Teachers() {
       title.includes('chủ tịch') ||
       title.includes('ban giám hiệu');
 
-    if (isBGH) return 1;
+    const isBGHAndOffice = 
+      isBGH || 
+      title.includes('kế toán') || 
+      title.includes('y tế') || 
+      title.includes('bác sĩ') ||
+      title.includes('văn phòng') ||
+      title.includes('thủ quỹ') ||
+      title.includes('văn thư') ||
+      title.includes('tuyển sinh') ||
+      (role === 'staff' && 
+        !title.includes('bếp') && !title.includes('cấp dưỡng') && !title.includes('nấu ăn') && 
+        !title.includes('kỹ thuật') && !title.includes('bảo vệ') && !title.includes('lao công') && !title.includes('vệ sinh')
+      );
+
+    if (isBGHAndOffice) return 1;
 
     const isTeacher = role === 'teacher' || title.includes('giáo viên');
     if (isTeacher) return 2;
@@ -318,9 +330,7 @@ export function Teachers() {
   const handleExportExcel = async () => {
     try {
       const filters: Record<string, any> = {};
-      if (selectedStatus !== "all") {
-        filters.is_active = selectedStatus === "active";
-      }
+      filters.work_status = selectedStatus;
       if (selectedRole !== "all") {
         filters.role = selectedRole;
       }
@@ -364,7 +374,10 @@ export function Teachers() {
           job_title: row.job_title || '',
           date_of_birth: row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString('vi-VN') : '',
           address: row.address || '',
-          status: row.is_active ? 'Hoạt động' : 'Tạm nghỉ',
+          status: row.work_status === 'active' ? 'Đang làm việc' 
+            : row.work_status === 'maternity_leave' ? 'Đang nghỉ thai sản'
+            : row.work_status === 'on_leave' ? 'Nghỉ phép'
+            : 'Đã nghỉ việc',
           classes: classes
         };
       });
@@ -426,12 +439,26 @@ export function Teachers() {
         }
       }
 
-      // Map hoạt động
+      // Map trạng thái công tác
+      let workStatus: 'active' | 'maternity_leave' | 'inactive' | 'on_leave' = 'active';
       let isActive = true;
       if (rawStatus) {
         const statusLower = String(rawStatus).toLowerCase().trim();
-        if (statusLower.includes('nghỉ') || statusLower.includes('tạm nghỉ') || statusLower.includes('không') || statusLower === 'false') {
+        if (statusLower.includes('thai sản') || statusLower.includes('sinh')) {
+          workStatus = 'maternity_leave';
+          isActive = true;
+        } else if (statusLower.includes('nghỉ phép') || statusLower.includes('phép') || statusLower.includes('nghỉ cưới') || statusLower.includes('nghỉ ốm')) {
+          workStatus = 'on_leave';
+          isActive = true;
+        } else if (statusLower.includes('nghỉ việc') || statusLower.includes('nghỉ hẳn') || statusLower.includes('đã nghỉ') || statusLower.includes('không hoạt động')) {
+          workStatus = 'inactive';
           isActive = false;
+        } else if (statusLower.includes('tạm nghỉ') || statusLower.includes('tạm dừng')) {
+          workStatus = 'inactive';
+          isActive = false;
+        } else {
+          workStatus = 'active';
+          isActive = true;
         }
       }
 
@@ -450,6 +477,7 @@ export function Teachers() {
           date_of_birth: dob,
           address: address ? address.trim() : null,
           is_active: isActive,
+          work_status: workStatus,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -613,7 +641,7 @@ export function Teachers() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 pt-6">
       {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -695,9 +723,9 @@ export function Teachers() {
           className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
         >
           <option value="all">Tất cả chức vụ</option>
-          <option value="bgh">Ban Giám hiệu</option>
+          <option value="bgh">Ban Giám hiệu và văn phòng</option>
           <option value="teacher">Giáo viên</option>
-          <option value="kitchen">Nhân viên: Tổ bếp</option>
+          <option value="kitchen">Tổ bếp</option>
           <option value="maintenance">Kỹ thuật, bảo vệ, lao công</option>
         </select>
 
@@ -719,9 +747,10 @@ export function Teachers() {
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
         >
-          <option value="all">Tất cả trạng thái</option>
           <option value="active">Đang làm việc</option>
-          <option value="inactive">Đã nghỉ việc / Nghỉ phép</option>
+          <option value="maternity_leave">Đang nghỉ thai sản</option>
+          <option value="inactive">Đã nghỉ việc</option>
+          <option value="on_leave">Nghỉ phép</option>
         </select>
 
         <button 
@@ -804,17 +833,17 @@ export function Teachers() {
                     className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between overflow-hidden cursor-pointer"
                   >
                     {/* Hover actions */}
-                    <div className="absolute top-4 right-4 flex gap-1 bg-white/85 dark:bg-slate-900/85 backdrop-blur-sm p-1 rounded-xl border border-outline-variant/30 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none" onClick={(e) => e.stopPropagation()}>
+                    <div className="absolute top-4 right-4 flex gap-1.5 bg-white border border-outline-variant/60 shadow-md p-1 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 select-none" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleOpenDetail(teacher.id)}
-                        className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-on-surface-variant hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                         title="Xem chi tiết"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleEditTeacher(teacher)}
-                        className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-on-surface-variant hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
                         title="Sửa thông tin"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -824,7 +853,7 @@ export function Teachers() {
                           setSelectedTeacher(teacher);
                           setIsDeleteDialogOpen(true);
                         }}
-                        className="p-1.5 text-error hover:bg-error/5 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-on-surface-variant hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         title="Xóa nhân sự"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -855,14 +884,37 @@ export function Teachers() {
                       <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
                         {getRoleBadge(teacher)}
                         
-                        <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border",
-                          teacher.is_active 
-                            ? "bg-green-50 text-green-700 border-green-200" 
-                            : "bg-gray-50 text-gray-600 border-gray-200"
-                        )}>
-                          {teacher.is_active ? 'Đang làm' : 'Đã nghỉ'}
-                        </span>
+                        {(() => {
+                          let badgeClass = "bg-gray-50 text-gray-600 border-gray-200";
+                          let text = "Đã nghỉ việc";
+                          switch (teacher.work_status) {
+                            case 'active':
+                              badgeClass = "bg-green-50 text-green-700 border-green-200";
+                              text = "Đang làm việc";
+                              break;
+                            case 'maternity_leave':
+                              badgeClass = "bg-purple-50 text-purple-700 border-purple-200";
+                              text = "Nghỉ thai sản";
+                              break;
+                            case 'on_leave':
+                              badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+                              text = "Nghỉ phép";
+                              break;
+                            case 'inactive':
+                            default:
+                              badgeClass = "bg-red-50 text-red-700 border-red-200";
+                              text = "Đã nghỉ việc";
+                              break;
+                          }
+                          return (
+                            <span className={cn(
+                              "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border",
+                              badgeClass
+                            )}>
+                              {text}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Meta Information Details */}

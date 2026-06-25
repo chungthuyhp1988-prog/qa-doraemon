@@ -28,7 +28,7 @@ const teacherFormSchema = z.object({
   avatar_url: z.string().nullable().optional(),
   date_of_birth: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
-  is_active: z.boolean().default(true),
+  work_status: z.enum(['active', 'maternity_leave', 'inactive', 'on_leave']).default('active'),
   assigned_class_ids: z.array(z.string()).default([]),
 });
 
@@ -120,7 +120,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
     avatar_url: teacher?.avatar_url || '',
     date_of_birth: teacher?.date_of_birth ? teacher.date_of_birth.split('T')[0] : '',
     address: teacher?.address || '',
-    is_active: teacher?.is_active !== undefined ? teacher.is_active : true,
+    work_status: teacher?.work_status || (teacher?.is_active === false ? 'inactive' : 'active'),
     assigned_class_ids: teacher?.class_teachers?.map((ct: any) => ct.class_id) || [],
   };
 
@@ -151,7 +151,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
         avatar_url: teacher?.avatar_url || '',
         date_of_birth: teacher?.date_of_birth ? teacher.date_of_birth.split('T')[0] : '',
         address: teacher?.address || '',
-        is_active: teacher?.is_active !== undefined ? teacher.is_active : true,
+        work_status: teacher?.work_status || (teacher?.is_active === false ? 'inactive' : 'active'),
         assigned_class_ids: teacher?.class_teachers?.map((ct: any) => ct.class_id) || [],
       });
       prevRoleRef.current = currentRole;
@@ -206,7 +206,8 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
         job_title: finalJobTitle,
         date_of_birth: values.date_of_birth || null,
         address: values.address || null,
-        is_active: values.is_active,
+        work_status: values.work_status,
+        is_active: values.work_status !== 'inactive',
         updated_at: new Date().toISOString(),
       };
 
@@ -418,22 +419,18 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
           </div>
         )}
 
-        {/* Active Toggle Switch */}
-        <div className="flex items-center justify-between border-t border-outline-variant/20 pt-4">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-bold text-on-surface">Trạng thái công tác</span>
-            <span className="text-xs text-on-surface-variant">Bật để cho phép nhân viên truy cập hệ thống</span>
-          </div>
-          
-          <Controller
-            control={control}
-            name="is_active"
-            render={({ field }) => (
-              <Switch
-                checked={field.value}
-                onChange={field.onChange}
-              />
-            )}
+        {/* Work Status Dropdown */}
+        <div className="border-t border-outline-variant/20 pt-4">
+          <Select
+            label="Trạng thái công tác"
+            options={[
+              { value: 'active', label: 'Đang làm việc' },
+              { value: 'maternity_leave', label: 'Đang nghỉ thai sản' },
+              { value: 'inactive', label: 'Đã nghỉ việc' },
+              { value: 'on_leave', label: 'Nghỉ phép' }
+            ]}
+            error={errors.work_status?.message}
+            {...register('work_status')}
           />
         </div>
 

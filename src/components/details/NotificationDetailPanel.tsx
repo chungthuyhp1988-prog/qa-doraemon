@@ -44,7 +44,7 @@ export const NotificationDetailPanel: React.FC<NotificationDetailPanelProps> = (
     queryKey: ['notification-detail', notificationId],
     queryFn: () => api.getById('notifications', notificationId, '*, users:created_by(full_name, role)')
   });
-  const notification = notificationResponse?.data;
+  const notification = notificationResponse?.data as any;
 
   // 2. Fetch specific target name if individual
   const { data: studentResponse } = useQuery({
@@ -55,7 +55,7 @@ export const NotificationDetailPanel: React.FC<NotificationDetailPanelProps> = (
     },
     enabled: notification?.target === 'individual' && !!notification?.target_id
   });
-  const targetStudent = studentResponse?.data;
+  const targetStudent = studentResponse?.data as any;
 
   const handleEdit = () => {
     if (!notification) return;

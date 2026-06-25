@@ -87,6 +87,7 @@ export interface AuthUser {
   school_id: string;
   avatar_url: string | null;
   is_active: boolean;
+  work_status: 'active' | 'maternity_leave' | 'inactive' | 'on_leave';
 }
 
 /**
