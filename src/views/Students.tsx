@@ -20,12 +20,14 @@ import {
 import { cn } from "../lib/utils";
 import { exportToExcel, parseExcelDate, parseGender } from "../lib/excelHelper";
 import { useAuthStore } from "../stores/authStore";
+import { useAppStore } from "../stores/appStore";
 import { toast } from "../stores/toastStore";
 
 export function Students() {
   const { openPanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
+  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
   
   // Search & Filter state
   const [search, setSearch] = useState("");
@@ -36,6 +38,11 @@ export function Students() {
 
   // Import modal state
   const [isImportOpen, setIsImportOpen] = useState(false);
+
+  // Reset class filter when academic year changes
+  useEffect(() => {
+    setSelectedClassId("all");
+  }, [selectedAcademicYearId]);
 
   // Debounce search term
   useEffect(() => {
@@ -56,8 +63,15 @@ export function Students() {
 
   // 1. Fetch classes list for dropdown filters
   const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list'],
-    queryFn: () => api.getAll('classes', { page: 1, pageSize: 100 }, {}, 'id, name, grade_level')
+    queryKey: ['classes-list', selectedAcademicYearId],
+    queryFn: () => {
+      const filters: Record<string, any> = {};
+      if (selectedAcademicYearId) {
+        filters.academic_year_id = selectedAcademicYearId;
+      }
+      return api.getAll('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name, grade_level');
+    },
+    enabled: !!selectedAcademicYearId
   });
   const classesList = (classesResponse?.data?.data as any[]) || [];
 
@@ -66,7 +80,7 @@ export function Students() {
 
   // 2. Fetch students list based on search, filters and page size
   const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['students-list', debouncedSearch, selectedClassId, selectedStatus, pageSize],
+    queryKey: ['students-list', selectedAcademicYearId, debouncedSearch, selectedClassId, selectedStatus, pageSize],
     queryFn: async () => {
       const filters: Record<string, any> = {};
       

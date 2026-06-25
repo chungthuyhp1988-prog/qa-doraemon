@@ -57,16 +57,28 @@ export function Finance() {
     setPage(1);
   }, [selectedMonthYear, selectedClassId, selectedStatus]);
 
+  // Reset class filter when academic year changes
+  useEffect(() => {
+    setSelectedClassId("all");
+  }, [selectedAcademicYearId]);
+
   // 1. Fetch classes list for filter dropdown
   const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list'],
-    queryFn: () => api.getAll('classes', { page: 1, pageSize: 100 }, { filters: { is_active: true } }, 'id, name')
+    queryKey: ['classes-list', selectedAcademicYearId],
+    queryFn: () => {
+      const filters: Record<string, any> = { is_active: true };
+      if (selectedAcademicYearId) {
+        filters.academic_year_id = selectedAcademicYearId;
+      }
+      return api.getAll('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+    },
+    enabled: !!selectedAcademicYearId
   });
   const classesList = classesResponse?.data?.data || [];
 
   // 2. Fetch tuition fees records
   const { data: feesResponse, isLoading, isError, refetch } = useQuery({
-    queryKey: ['tuition-fees-list', selectedMonthYear, selectedClassId, selectedStatus, page],
+    queryKey: ['tuition-fees-list', selectedAcademicYearId, selectedMonthYear, selectedClassId, selectedStatus, page],
     queryFn: async () => {
       const filters: Record<string, any> = {
         month: currentMonth,
