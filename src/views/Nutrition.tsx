@@ -273,18 +273,18 @@ export function Nutrition() {
       {/* Header section - hidden in printing */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Dinh Dưỡng & Thực Đơn</h2>
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Dinh Dưỡng & Thực Đơn</h2>
           <p className="text-[13px] md:text-[14px] text-on-surface-variant mt-1 font-inter">
             Lập kế hoạch thực đơn dinh dưỡng hàng tuần và in gửi phụ huynh học sinh.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 shrink-0">
           {isPrivileged && (
             <button
               onClick={() => handleCloneLastWeek(false)}
               disabled={cloning}
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-surface-container border border-outline-variant/40 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-on-surface transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-surface-container border border-outline-variant/40 px-3.5 py-2 rounded-xl text-[13px] font-semibold text-on-surface transition-all cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               <Copy className="w-4 h-4 text-on-surface-variant" />
               {cloning ? 'Đang sao chép...' : 'Nhân Bản Tuần Trước'}
@@ -293,7 +293,7 @@ export function Nutrition() {
 
           <button
             onClick={handlePrint}
-            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-surface-container border border-outline-variant/40 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-on-surface transition-all cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-surface-container border border-outline-variant/40 px-3.5 py-2 rounded-xl text-[13px] font-semibold text-on-surface transition-all cursor-pointer whitespace-nowrap shrink-0"
           >
             <Printer className="w-4 h-4 text-on-surface-variant" />
             In Thực Đơn
@@ -302,7 +302,7 @@ export function Nutrition() {
           {isPrivileged && (
             <button
               onClick={handleCreateMealPlan}
-              className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-[13px] font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
               <Plus className="w-4 h-4" />
               Thêm Thực Đơn

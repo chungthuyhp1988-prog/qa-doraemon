@@ -458,17 +458,19 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
             onClick={handleEdit}
             variant="outline"
             size="sm"
-            className="rounded-xl flex items-center gap-1 cursor-pointer text-xs"
+            className="rounded-xl flex items-center justify-center cursor-pointer"
+            title="Chỉnh sửa lớp"
           >
-            <Edit2 className="w-3.5 h-3.5" /> Sửa
+            <Edit2 className="w-4 h-4" />
           </Button>
           <Button
             onClick={() => setIsDeleteDialogOpen(true)}
             variant="outline"
             size="sm"
-            className="rounded-xl border-red-200 hover:bg-red-50 hover:border-red-300 text-red-600 flex items-center gap-1 cursor-pointer text-xs"
+            className="rounded-xl border-red-200 hover:bg-red-50 hover:border-red-300 text-red-600 flex items-center justify-center cursor-pointer"
+            title="Xóa lớp"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Xóa
+            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -533,7 +535,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
                     setTargetClassId("");
                     setIsBulkTransferOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-on-primary hover:bg-primary/90 rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer select-none"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-on-primary hover:bg-primary/90 rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer select-none shrink-0 whitespace-nowrap"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                   Chuyển lớp hàng loạt ({selectedStudentIds.size})

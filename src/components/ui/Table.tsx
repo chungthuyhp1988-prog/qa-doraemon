@@ -145,7 +145,7 @@ export function Table<T>({
         className
       )}
     >
-      <table className="w-full border-collapse min-w-[600px]">
+      <table className="w-full border-collapse min-w-[600px]" role="table">
         {/* ── Head ─────────────────────────── */}
         <thead>
           <tr className="bg-surface-container">
@@ -170,6 +170,8 @@ export function Table<T>({
                   col.sortable && "cursor-pointer select-none hover:text-on-surface"
                 )}
                 onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                aria-sort={sortCol === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                scope="col"
               >
                 <span className="inline-flex items-center gap-1.5">
                   {col.header}

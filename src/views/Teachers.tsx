@@ -32,6 +32,7 @@ import { TeacherDetailPanel } from "../components/details/TeacherDetailPanel";
 import { toast } from "../stores/toastStore";
 import { exportToExcel, parseExcelDate } from "../lib/excelHelper";
 import { useAuthStore } from "../stores/authStore";
+import { useAppStore } from "../stores/appStore";
 
 // Helper function to compare Vietnamese names alphabetically by first name
 const compareVietnameseNames = (nameA: string, nameB: string) => {
@@ -100,10 +101,18 @@ export function Teachers() {
     setPage(1);
   }, [selectedRole, selectedClassId, selectedStatus]);
 
+  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
+  
   // 1. Fetch classes list for the class filter dropdown
   const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list'],
-    queryFn: () => api.getAll('classes', { page: 1, pageSize: 100 }, {}, 'id, name')
+    queryKey: ['classes-list', selectedAcademicYearId],
+    queryFn: () => {
+      const filters: Record<string, any> = { is_active: true };
+      if (selectedAcademicYearId) {
+        filters.academic_year_id = selectedAcademicYearId;
+      }
+      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+    }
   });
   const classesList = classesResponse?.data?.data || [];
 
@@ -641,24 +650,24 @@ export function Teachers() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 pt-6">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12">
       {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">DANH SÁCH CÁN BỘ, GIÁO VIÊN, NHÂN VIÊN</h2>
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách cán bộ, giáo viên, nhân viên</h2>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button 
             onClick={handleExportExcel}
-            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+            className="border border-outline-variant hover:bg-surface-container-high px-3.5 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant whitespace-nowrap shrink-0"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             Xuất Excel
           </button>
           <button 
             onClick={() => setIsImportOpen(true)}
-            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+            className="border border-outline-variant hover:bg-surface-container-high px-3.5 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4 text-primary" />
             Nhập Excel
@@ -694,9 +703,9 @@ export function Teachers() {
 
           <button 
             onClick={handleCreateTeacher}
-            className="bg-primary text-on-primary px-5 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
+            className="bg-primary text-on-primary px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm cursor-pointer whitespace-nowrap shrink-0"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Thêm nhân sự mới
           </button>
         </div>

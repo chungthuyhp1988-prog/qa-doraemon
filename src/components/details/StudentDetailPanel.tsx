@@ -221,7 +221,7 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
         
         {/* ── PROFILE TAB ── */}
         {activeTab === 'profile' && (
-          <div className="space-y-6 animate-fade-in bg-white p-5 rounded-2xl border border-outline-variant/40 shadow-xs">
+          <div className="space-y-6 animate-fade-in bg-white dark:bg-surface-container-low p-5 rounded-2xl border border-outline-variant/40 dark:border-outline-variant/20 shadow-xs">
             <div>
               <h4 className="text-[13px] font-extrabold text-primary uppercase tracking-wider border-b border-outline-variant/20 pb-2 mb-3">Thông tin trẻ</h4>
               <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-[13.5px]">
@@ -312,26 +312,26 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
 
         {/* ── HEALTH TAB ── */}
         {activeTab === 'health' && (
-          <div className="space-y-6 animate-fade-in bg-white p-5 rounded-2xl border border-outline-variant/40 shadow-xs">
+          <div className="space-y-6 animate-fade-in bg-white dark:bg-surface-container-low p-5 rounded-2xl border border-outline-variant/40 dark:border-outline-variant/20 shadow-xs">
             <div>
-              <h4 className="text-[13px] font-extrabold text-red-600 uppercase tracking-wider border-b border-red-100 pb-2 mb-3.5 flex items-center gap-1.5">
+              <h4 className="text-[13px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider border-b border-red-100 dark:border-red-900/30 pb-2 mb-3.5 flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4" /> Lưu ý sức khỏe đặc biệt
               </h4>
-              <div className="bg-red-50/50 border border-red-100 p-4 rounded-xl flex flex-col gap-3">
+              <div className="bg-red-50/50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/30 p-4 rounded-xl flex flex-col gap-3">
                 <div className="flex justify-between items-center text-[13.5px]">
                   <span className="text-on-surface-variant font-bold">Dị ứng thức ăn / thuốc:</span>
                   <span className={cn(
                     "font-bold px-2 py-0.5 rounded text-[11px] uppercase tracking-wider border",
                     student.allergies 
-                      ? "bg-red-100 text-red-700 border-red-200" 
-                      : "bg-green-100 text-green-700 border-green-200"
+                      ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/30" 
+                      : "bg-green-100 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30"
                   )}>
                     {student.allergies || 'Không dị ứng'}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1 text-[13.5px]">
                   <span className="text-on-surface-variant font-bold">Ghi chú y tế:</span>
-                  <span className="font-semibold text-on-surface mt-0.5 leading-relaxed bg-white border border-outline-variant/30 p-3 rounded-xl">
+                  <span className="font-semibold text-on-surface mt-0.5 leading-relaxed bg-white dark:bg-surface-container border border-outline-variant/30 dark:border-outline-variant/20 p-3 rounded-xl">
                     {student.medical_notes || 'Sức khỏe bình thường, không có bệnh nền hoặc lưu ý đặc biệt.'}
                   </span>
                 </div>
@@ -339,8 +339,8 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
             </div>
             
             <div>
-              <h4 className="text-[13px] font-extrabold text-primary uppercase tracking-wider border-b border-outline-variant/20 pb-2 mb-3">Lịch sử tăng trưởng & Phát triển</h4>
-              <p className="text-[13px] text-on-surface-variant font-medium leading-relaxed bg-surface-container-low p-4 border border-outline-variant/30 rounded-xl">
+              <h4 className="text-[13px] font-extrabold text-primary dark:text-blue-400 uppercase tracking-wider border-b border-outline-variant/20 dark:border-outline-variant/10 pb-2 mb-3">Lịch sử tăng trưởng & Phát triển</h4>
+              <p className="text-[13px] text-on-surface-variant font-medium leading-relaxed bg-surface-container-low dark:bg-surface-container p-4 border border-outline-variant/30 dark:border-outline-variant/20 rounded-xl">
                 Thông tin cân nặng, chiều cao và sự tăng trưởng của trẻ được lưu trữ và cập nhật chi tiết trong phân hệ **Sức Khỏe**.
               </p>
             </div>
@@ -349,8 +349,8 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
 
         {/* ── FINANCE TAB ── */}
         {activeTab === 'finance' && (
-          <div className="space-y-4 animate-fade-in bg-white p-5 rounded-2xl border border-outline-variant/40 shadow-xs">
-            <h4 className="text-[13px] font-extrabold text-primary uppercase tracking-wider border-b border-outline-variant/20 pb-2 mb-3">Học phí & các khoản thu</h4>
+          <div className="space-y-4 animate-fade-in bg-white dark:bg-surface-container-low p-5 rounded-2xl border border-outline-variant/40 dark:border-outline-variant/20 shadow-xs">
+            <h4 className="text-[13px] font-extrabold text-primary dark:text-blue-400 uppercase tracking-wider border-b border-outline-variant/20 dark:border-outline-variant/10 pb-2 mb-3">Học phí & các khoản thu</h4>
             
             {isLoadingFees ? (
               <div className="space-y-3 animate-pulse">

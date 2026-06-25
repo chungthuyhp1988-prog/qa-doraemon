@@ -12,8 +12,6 @@ import {
   LayoutGrid,
   Info,
   List,
-  UserPlus,
-  ArrowRight,
   Eye
 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -37,9 +35,8 @@ export function Classes() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedClass, setSelectedClass] = useState<any | null>(null);
 
-  // Search & waitlist state
+  // Search state
   const [search, setSearch] = useState("");
-  const [isUnassignedOpen, setIsUnassignedOpen] = useState(true);
 
   // 1. Fetch academic years list
   const { data: yearsResponse } = useQuery({
@@ -73,17 +70,7 @@ export function Classes() {
   });
   const classes = classesResponse?.data?.data || [];
 
-  // 4. Fetch unassigned students
-  const { data: unassignedResponse, isLoading: isLoadingUnassigned, refetch: refetchUnassigned } = useQuery({
-    queryKey: ['unassigned-students', selectedAcademicYearId],
-    queryFn: () => api.getAll<any>(
-      'students',
-      { page: 1, pageSize: 200, sortBy: 'full_name', sortOrder: 'asc' },
-      { filters: { class_id: null, status: 'active' } }
-    ),
-    enabled: !!selectedAcademicYearId,
-  });
-  const unassignedStudents = unassignedResponse?.data?.data || [];
+
 
   // Filter classes based on search
   const filteredClasses = classes.filter(c => 
@@ -109,22 +96,7 @@ export function Classes() {
     }
   };
 
-  const handleQuickAssign = async (student: any, classId: string, className: string) => {
-    if (!classId) return;
-    try {
-      const res = await api.update('students', student.id, {
-        class_id: classId,
-        updated_at: new Date().toISOString()
-      });
-      if (res.error) throw new Error(res.error);
-      toast.success(`Đã xếp lớp thành công trẻ ${student.full_name} vào lớp ${className}!`);
-      queryClient.invalidateQueries({ queryKey: ['students-in-class', classId] });
-      queryClient.invalidateQueries({ queryKey: ['classes-list'] });
-      queryClient.invalidateQueries({ queryKey: ['unassigned-students'] });
-    } catch (err: any) {
-      toast.error('Lỗi khi xếp lớp nhanh', err.message || 'Lỗi hệ thống');
-    }
-  };
+
 
   // SlidePanel handlers
   const handleOpenDetail = (classId: string) => {
@@ -268,18 +240,18 @@ export function Classes() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4 pt-6">
+    <div className="animate-in fade-in duration-300 max-w-[1400px] mx-auto pb-12 space-y-4">
       {/* Header section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Quản lý Lớp học</h2>
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Quản lý Lớp học</h2>
           <p className="text-[13px] md:text-[14px] text-on-surface-variant mt-1">
             Danh sách các lớp học, phân công giáo viên và quản lý học sinh theo lớp năm học {currentYearName}.
           </p>
         </div>
         <button
           onClick={handleCreateClass}
-          className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-5 py-2.5 rounded-xl text-[14px] font-semibold shadow-sm transition-all cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-[13px] font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap shrink-0"
         >
           <Plus className="w-4 h-4" />
           Tạo Lớp Mới
@@ -295,9 +267,7 @@ export function Classes() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {/* Main list area */}
-          <div className="flex-1 w-full space-y-6">
+        <div className="w-full space-y-6">
             
             {/* Filters */}
             <div className="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap gap-3.5 items-center">
@@ -435,66 +405,6 @@ export function Classes() {
             )}
           </div>
 
-          {/* Waitlist / Unassigned Students panel (col 4/1 flex) */}
-          <div className="w-full lg:w-80 shrink-0 bg-surface border border-outline-variant/40 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
-            <button
-              type="button"
-              onClick={() => setIsUnassignedOpen(!isUnassignedOpen)}
-              className="w-full px-5 py-4 bg-surface-container-low/60 hover:bg-surface-container-low flex items-center justify-between font-bold text-xs uppercase tracking-wider text-on-surface-variant transition-all select-none border-b border-outline-variant/20 cursor-pointer"
-            >
-              <span className="flex items-center gap-2">
-                <UserPlus className="w-4.5 h-4.5 text-primary" />
-                Trẻ chưa xếp lớp ({unassignedStudents.length})
-              </span>
-            </button>
-
-            {isUnassignedOpen && (
-              <div className="p-4 space-y-2.5 max-h-[450px] overflow-y-auto bg-surface/50">
-                {isLoadingUnassigned ? (
-                  <div className="space-y-2 py-2">
-                    {[1, 2].map(i => (
-                      <div key={i} className="h-10 rounded-xl bg-surface-container-low animate-pulse" />
-                    ))}
-                  </div>
-                ) : unassignedStudents.length === 0 ? (
-                  <p className="text-xs text-on-surface-variant/70 italic text-center py-6 select-none font-medium">
-                    Tất cả trẻ đã được xếp lớp!
-                  </p>
-                ) : (
-                  unassignedStudents.map((student: any) => (
-                    <div key={student.id} className="p-3 rounded-xl bg-surface-container-low/30 hover:bg-surface-container-low/60 border border-outline-variant/20 transition-all flex flex-col gap-2.5">
-                      <div className="min-w-0 pr-2">
-                        <p className="text-xs font-bold text-on-surface truncate">{student.full_name}</p>
-                        <p className="text-[10px] text-on-surface-variant/80 font-semibold mt-0.5">{student.student_code} | {student.gender === 'male' ? 'Nam' : 'Nữ'}</p>
-                      </div>
-                      
-                      {classes.length > 0 ? (
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                const selectedC = classes.find(c => c.id === e.target.value);
-                                handleQuickAssign(student, e.target.value, selectedC?.name || "");
-                              }
-                            }}
-                            className="flex-1 bg-surface border border-outline-variant/50 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:border-primary cursor-pointer font-bold text-on-surface-variant"
-                          >
-                            <option value="">-- Xếp nhanh vào lớp --</option>
-                            {classes.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-on-surface-variant/50 italic font-medium">Chưa có lớp học</span>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
       {/* Delete Class Confirmation (for quick delete from list) */}

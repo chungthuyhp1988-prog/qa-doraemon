@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 interface ProtectedRouteProps {
   children: ReactNode;
   /** Roles allowed to access this route. If empty, any authenticated user can access. */
-  allowedRoles?: ('admin' | 'teacher' | 'staff')[];
+  allowedRoles?: ('admin' | 'teacher' | 'staff' | 'guardian')[];
 }
 
 /**

@@ -55,7 +55,7 @@ export function AppLayout() {
 
       {/* Main Content */}
       <main
-        className="flex-1 pt-[72px] min-h-screen px-4 md:px-8 py-8 overflow-y-auto transition-all duration-300"
+        className="flex-1 pt-[96px] min-h-screen px-4 md:px-8 py-8 overflow-y-auto transition-all duration-300"
         style={{ marginLeft: `${sidebarWidth}px` }}
       >
         <div className="mx-auto max-w-7xl">

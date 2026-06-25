@@ -797,7 +797,24 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      dashboard_stats: {
+        Args: { p_date: string };
+        Returns: Record<string, unknown>;
+      };
+      finance_monthly_summary: {
+        Args: { p_academic_year_id: string };
+        Returns: Record<string, unknown>[];
+      };
+      generate_receipt: {
+        Args: { p_fee_id: string };
+        Returns: Record<string, unknown>;
+      };
+      mark_overdue_fees: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+    };
     Enums: {
       user_role: UserRole;
       student_status: StudentStatus;

@@ -184,40 +184,41 @@ export const HealthRecordDetailPanel: React.FC<HealthRecordDetailPanelProps> = (
         </div>
         <Button
           onClick={handleCreateRecord}
-          className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+          leftIcon={<Plus className="w-4 h-4" />}
+          className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer shrink-0"
         >
-          <Plus className="w-4 h-4" /> Thêm lượt khám
+          Thêm lượt khám
         </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* Latest Parameters Grid */}
-        <div className="grid grid-cols-3 gap-4 bg-white p-5 rounded-2xl border border-outline-variant/40 shadow-2xs">
-          <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100 flex items-center gap-3">
-            <Ruler className="w-5 h-5 text-blue-600 shrink-0" />
+        <div className="grid grid-cols-3 gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-outline-variant/40 shadow-2xs">
+          <div className="p-3 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20 dark:border-blue-500/30 flex items-center gap-3">
+            <Ruler className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
             <div>
-              <p className="text-[10px] text-on-surface-variant/80 font-bold uppercase tracking-wider">Chiều cao</p>
-              <h3 className="text-md font-bold text-on-surface mt-0.5">
+              <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest">Chiều cao</p>
+              <h3 className="text-base font-black text-on-surface dark:text-white mt-0.5">
                 {latestRecord?.height_cm ? `${latestRecord.height_cm} cm` : '—'}
               </h3>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-green-50/50 border border-green-100 flex items-center gap-3">
-            <Scale className="w-5 h-5 text-green-600 shrink-0" />
+          <div className="p-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 dark:border-emerald-500/30 flex items-center gap-3">
+            <Scale className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div>
-              <p className="text-[10px] text-on-surface-variant/80 font-bold uppercase tracking-wider">Cân nặng</p>
-              <h3 className="text-md font-bold text-on-surface mt-0.5">
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">Cân nặng</p>
+              <h3 className="text-base font-black text-on-surface dark:text-white mt-0.5">
                 {latestRecord?.weight_kg ? `${latestRecord.weight_kg} kg` : '—'}
               </h3>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-orange-50/50 border border-orange-100 flex items-center gap-3">
-            <Thermometer className="w-5 h-5 text-orange-600 shrink-0" />
+          <div className="p-3 rounded-xl bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/20 dark:border-rose-500/30 flex items-center gap-3">
+            <Thermometer className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
             <div>
-              <p className="text-[10px] text-on-surface-variant/80 font-bold uppercase tracking-wider">Nhiệt độ</p>
-              <h3 className="text-md font-bold text-on-surface mt-0.5">
+              <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-widest">Nhiệt độ</p>
+              <h3 className="text-base font-black text-on-surface dark:text-white mt-0.5">
                 {latestRecord?.temperature ? `${latestRecord.temperature} °C` : '—'}
               </h3>
             </div>

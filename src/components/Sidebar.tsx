@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Users,
@@ -17,13 +18,20 @@ import {
   School,
   Award,
   UserPlus,
+  BarChart3,
+  Shield,
+  Baby,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Avatar } from "./ui/Avatar";
+import { useAuthStore } from "../stores/authStore";
+import { api } from "../lib/api";
 import schoolLogo from "../assets/logo.jpg";
 
 /* ── Types ─────────────────────────────────────────── */
+
+type UserRole = 'admin' | 'teacher' | 'staff' | 'guardian';
 
 export interface SidebarUser {
   name: string;
@@ -47,24 +55,27 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   badge?: number;
+  roles?: UserRole[];
 }
 
 const mainNavItems: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Học Sinh", icon: Users },
-  { to: "/registrations", label: "Đăng Ký", icon: UserPlus },
-  { to: "/teachers", label: "Giáo Viên", icon: GraduationCap },
+  { to: "/teachers", label: "Giáo Viên", icon: GraduationCap, roles: ['admin'] },
   { to: "/classes", label: "Lớp Học", icon: BookOpen },
-  { to: "/attendance", label: "Điểm Danh", icon: ClipboardCheck },
-  { to: "/finance", label: "Tài Chính", icon: CreditCard },
+  { to: "/attendance", label: "Điểm Danh", icon: ClipboardCheck, roles: ['admin', 'teacher'] },
+  { to: "/finance", label: "Tài Chính", icon: CreditCard, roles: ['admin'] },
   { to: "/nutrition", label: "Dinh Dưỡng", icon: UtensilsCrossed },
-  { to: "/health", label: "Sức Khỏe", icon: HeartPulse },
-  { to: "/evaluations", label: "Đánh Giá", icon: Award },
+  { to: "/health", label: "Sức Khỏe", icon: HeartPulse, roles: ['admin', 'teacher'] },
+  { to: "/evaluations", label: "Đánh Giá", icon: Award, roles: ['admin', 'teacher'] },
+  { to: "/reports", label: "Báo Cáo", icon: BarChart3, roles: ['admin'] },
+  { to: "/audit-log", label: "Nhật Ký", icon: Shield, roles: ['admin'] },
+  { to: "/guardian", label: "Cổng PH", icon: Baby, roles: ['guardian'] },
 ];
 
 const bottomNavItems: NavItem[] = [
-  { to: "/notifications", label: "Thông Báo", icon: Bell, badge: 3 },
-  { to: "/settings", label: "Cài Đặt", icon: Settings },
+  { to: "/notifications", label: "Thông Báo", icon: Bell },
+  { to: "/settings", label: "Cài Đặt", icon: Settings, roles: ['admin'] },
 ];
 
 /* ── SidebarNavItem ────────────────────────────────── */
@@ -158,6 +169,27 @@ function SidebarContent({
   onLogout,
 }: Omit<SidebarProps, "mobileOpen" | "onMobileClose">) {
   const [logoError, setLogoError] = useState(false);
+  const { user: currentUser } = useAuthStore();
+  const userRole = currentUser?.role;
+
+  const filteredMainNav = mainNavItems.filter(
+    (item) => !item.roles || (userRole && item.roles.includes(userRole))
+  );
+
+  // Query unread notification count for badge
+  const { data: unreadCountRes } = useQuery({
+    queryKey: ['sidebar-unread-count', currentUser?.school_id],
+    queryFn: () => api.count('notifications', { filters: { is_read: false, school_id: currentUser?.school_id } }),
+    enabled: !!currentUser?.school_id,
+    refetchInterval: 30_000,
+  });
+  const unreadCount = unreadCountRes?.data || 0;
+
+  const filteredBottomNav = bottomNavItems
+    .filter((item) => !item.roles || (userRole && item.roles.includes(userRole)))
+    .map((item) =>
+      item.to === '/notifications' ? { ...item, badge: unreadCount > 0 ? unreadCount : undefined } : item
+    );
 
   return (
     <div className="flex flex-col h-full">
@@ -206,14 +238,14 @@ function SidebarContent({
 
       {/* ── Main navigation ───────────────── */}
       <nav className="flex-1 flex flex-col gap-0.5 px-2 overflow-y-auto overflow-x-hidden py-2">
-        {mainNavItems.map((item) => (
+        {filteredMainNav.map((item) => (
           <SidebarNavItem key={item.to} item={item} collapsed={collapsed} />
         ))}
       </nav>
 
       {/* ── Bottom section ────────────────── */}
       <div className="shrink-0 px-2 flex flex-col gap-0.5 py-2 border-t border-outline-variant/30 mx-3">
-        {bottomNavItems.map((item) => (
+        {filteredBottomNav.map((item) => (
           <SidebarNavItem key={item.to} item={item} collapsed={collapsed} />
         ))}
       </div>

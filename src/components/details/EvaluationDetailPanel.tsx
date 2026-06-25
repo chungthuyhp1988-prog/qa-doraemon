@@ -178,9 +178,10 @@ export const EvaluationDetailPanel: React.FC<EvaluationDetailPanelProps> = ({
         </div>
         <Button
           onClick={handleCreateEval}
-          className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+          leftIcon={<Plus className="w-4 h-4" />}
+          className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer shrink-0"
         >
-          <Plus className="w-4 h-4" /> Tạo phiếu đánh giá
+          Tạo phiếu đánh giá
         </Button>
       </div>
 

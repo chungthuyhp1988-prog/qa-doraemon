@@ -650,38 +650,38 @@ export function Students() {
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4 pt-6">
+    <div className="animate-in fade-in duration-300 space-y-4">
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách học sinh</h2>
+            <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Danh sách học sinh</h2>
             <span className="text-[12px] font-extrabold text-primary bg-primary-container/20 px-3 py-1 rounded-xl">
               Tổng số: {totalCount} học sinh
             </span>
           </div>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1">Quản lý và theo dõi thông tin chi tiết của tất cả học sinh tại trường mầm non.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button 
             onClick={handleExportExcel}
-            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+            className="border border-outline-variant hover:bg-surface-container-high px-3.5 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant whitespace-nowrap shrink-0"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             Xuất Excel
           </button>
           <button 
             onClick={() => setIsImportOpen(true)}
-            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+            className="border border-outline-variant hover:bg-surface-container-high px-3.5 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4 text-primary" />
             Nhập Excel
           </button>
           <button 
             onClick={handleCreateStudent}
-            className="bg-primary text-on-primary px-5 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm hover:shadow-md cursor-pointer duration-200"
+            className="bg-primary text-on-primary px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm hover:shadow-md cursor-pointer duration-200 whitespace-nowrap shrink-0"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Thêm học sinh mới
           </button>
         </div>

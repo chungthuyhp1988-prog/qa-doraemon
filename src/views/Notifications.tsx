@@ -21,6 +21,7 @@ import { ConfirmDialog, useSlidePanel, ErrorState } from "../components/ui";
 import { NotificationForm } from "../components/forms/NotificationForm";
 import { NotificationDetailPanel } from "../components/details/NotificationDetailPanel";
 import { useAuthStore } from "../stores/authStore";
+import { useAppStore } from "../stores/appStore";
 
 export function Notifications() {
   const queryClient = useQueryClient();
@@ -38,10 +39,18 @@ export function Notifications() {
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all"); // all, read, unread
 
+  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
+
   // 1. Fetch classes for the creation form
   const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list-notif'],
-    queryFn: () => api.getAll<any>('classes', { page: 1, pageSize: 100 })
+    queryKey: ['classes-list-notif', selectedAcademicYearId],
+    queryFn: () => {
+      const filters: Record<string, any> = { is_active: true };
+      if (selectedAcademicYearId) {
+        filters.academic_year_id = selectedAcademicYearId;
+      }
+      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+    }
   });
   const classesList = classesResponse?.data?.data || [];
 

@@ -376,24 +376,24 @@ export function Registrations() {
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
             Đăng ký tuyển sinh
           </h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1">
             Quản lý hồ sơ học sinh mới đăng ký và thực hiện xếp lớp học chính thức.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button 
             onClick={handleExportExcel}
-            className="border border-outline-variant hover:bg-surface-container-high px-4 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant"
+            className="border border-outline-variant hover:bg-surface-container-high px-3.5 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all cursor-pointer text-on-surface-variant whitespace-nowrap shrink-0"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             Xuất Excel
           </button>
           <button 
             onClick={() => setIsImportOpen(true)}
-            className="bg-primary text-on-primary px-5 py-2.5 rounded-xl text-[14px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm cursor-pointer"
+            className="bg-primary text-on-primary px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm cursor-pointer whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4" />
             Nhập Excel đăng ký

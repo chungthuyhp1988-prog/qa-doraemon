@@ -18,6 +18,7 @@ import { api } from "../lib/api";
 import { DatePicker, Skeleton, EmptyState, ErrorState, Button, Modal, Table, type TableColumn } from "../components/ui";
 import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
+import { useAppStore } from "../stores/appStore";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -44,10 +45,18 @@ export function Attendance() {
   const [selectedStudentForNote, setSelectedStudentForNote] = useState<any>(null);
   const [tempNote, setTempNote] = useState("");
 
+  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
+
   // 1. Fetch classes list for selection
   const { data: classesResponse, isLoading: isLoadingClasses } = useQuery({
-    queryKey: ['classes-list'],
-    queryFn: () => api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters: { is_active: true } }, 'id, name')
+    queryKey: ['classes-list', selectedAcademicYearId],
+    queryFn: () => {
+      const filters: Record<string, any> = { is_active: true };
+      if (selectedAcademicYearId) {
+        filters.academic_year_id = selectedAcademicYearId;
+      }
+      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+    }
   });
   const classesList = classesResponse?.data?.data || [];
 
@@ -398,7 +407,7 @@ export function Attendance() {
       {/* Header section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
             Điểm danh hàng ngày
           </h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1 font-inter">

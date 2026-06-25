@@ -233,14 +233,14 @@ export function Health() {
       {/* Header section */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Sức khỏe & Phát triển</h2>
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">Sức khỏe & Phát triển</h2>
           <p className="text-[13px] md:text-[14px] text-on-surface-variant mt-1 font-inter">
             Theo dõi chiều cao, cân nặng, lịch sử tiêm chủng và ghi chú y tế của trẻ theo định kỳ.
           </p>
         </div>
         <button
           onClick={handleCreateRecord}
-          className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-5 py-2.5 rounded-xl text-[14px] font-semibold shadow-sm transition-all cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-xl text-[13px] font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap shrink-0"
         >
           <Plus className="w-4 h-4" />
           Ghi Nhận Lượt Khám

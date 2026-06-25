@@ -17,6 +17,7 @@ export { Textarea, type TextareaProps } from "./Textarea";
 export { Switch, type SwitchProps } from "./Switch";
 export { Pagination, type PaginationProps } from "./Pagination";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
+export { ViewSkeleton } from "./ViewSkeleton";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorState, type ErrorStateProps } from "./ErrorState";
 export { FileUpload, type FileUploadProps } from "./FileUpload";

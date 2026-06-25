@@ -395,9 +395,10 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => append({ full_name: '', relationship: 'me', phone: '', email: '', occupation: '', is_primary: fields.length === 0 })}
-                  className="rounded-xl flex items-center gap-1.5 cursor-pointer text-xs"
+                  className="rounded-xl cursor-pointer text-xs"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
                 >
-                  <Plus className="w-3.5 h-3.5" /> Thêm phụ huynh
+                  Thêm phụ huynh
                 </Button>
               </div>
 

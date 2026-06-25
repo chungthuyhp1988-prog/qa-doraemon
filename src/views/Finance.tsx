@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { DatePicker, Table, type TableColumn, Button, useSlidePanel, ErrorState } from "../components/ui";
 import { FeeForm } from "../components/forms/FeeForm";
 import { FeeDetailPanel } from "../components/details/FeeDetailPanel";
@@ -204,42 +205,24 @@ export function Finance() {
     });
   }
 
-  // Fetch tuition fees for all months in the selected academic year to compute the chart
+  // Fetch monthly summary via RPC (replaces client-side 5000-row aggregation)
   const { data: chartData = [] } = useQuery({
     queryKey: ['finance-chart-data', selectedAcademicYearId],
     queryFn: async () => {
       if (!selectedAcademicYearId) return [];
-      
-      const res = await api.getAll<any>(
-        'tuition_fees',
-        { page: 1, pageSize: 5000 },
-        { filters: { academic_year_id: selectedAcademicYearId } },
-        'month, total_amount, paid_amount'
-      );
-      const fees = res.data?.data || [];
-      
-      const monthlyTotals: Record<number, { month: string; expected: number; paid: number }> = {};
-      
-      fees.forEach((fee: any) => {
-        const m = fee.month;
-        if (!monthlyTotals[m]) {
-          monthlyTotals[m] = {
-            month: `Tháng ${m}`,
-            expected: 0,
-            paid: 0
-          };
-        }
-        monthlyTotals[m].expected += Number(fee.total_amount || 0);
-        monthlyTotals[m].paid += Number(fee.paid_amount || 0);
+
+      const { data, error } = await (supabase.rpc as any)('finance_monthly_summary', {
+        p_academic_year_id: selectedAcademicYearId,
       });
-      
-      return Object.values(monthlyTotals).sort((a: any, b: any) => {
-        const numA = parseInt(a.month.replace('Tháng ', ''));
-        const numB = parseInt(b.month.replace('Tháng ', ''));
-        return numA - numB;
-      });
+      if (error) throw error;
+
+      return ((data as any[]) || []).map((row: any) => ({
+        month: `Tháng ${row.month}`,
+        expected: Number(row.expected || 0),
+        paid: Number(row.paid || 0),
+      }));
     },
-    enabled: !!selectedAcademicYearId
+    enabled: !!selectedAcademicYearId,
   });
 
   const handleExportCSV = () => {
@@ -516,7 +499,7 @@ export function Finance() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-[24px] md:text-[30px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
+          <h2 className="text-[20px] md:text-[24px] font-bold italic font-playfair text-on-surface leading-tight tracking-[-0.02em]">
             Quản lý Học phí
           </h2>
           <p className="text-[14px] md:text-[16px] text-on-surface-variant mt-1 font-inter">
@@ -524,13 +507,13 @@ export function Finance() {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
           <Button
             type="button"
             variant="outline"
             onClick={handleExportCSV}
             leftIcon={<Download className="w-4 h-4" />}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl text-[14px] font-bold border-outline-variant/50 hover:bg-surface-container-low cursor-pointer"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold border-outline-variant/50 hover:bg-surface-container-low cursor-pointer whitespace-nowrap shrink-0"
           >
             Xuất Excel
           </Button>
@@ -538,7 +521,7 @@ export function Finance() {
             type="button"
             onClick={handleCreateFee}
             leftIcon={<Plus className="w-4 h-4" />}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm text-[14px] font-bold cursor-pointer"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm text-[13px] font-bold cursor-pointer whitespace-nowrap shrink-0"
           >
             Tạo phiếu thu
           </Button>
@@ -548,49 +531,62 @@ export function Finance() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Stat Card 1 */}
-        <div className="bg-surface-container-lowest rounded-[32px] p-6 shadow-sm border border-outline-variant/30 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl"></div>
-          <div>
-            <p className="text-[13px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Dự kiến thu (Tháng {currentMonth}/{currentYear})</p>
-            <h3 className="text-[28px] font-bold italic font-playfair text-on-surface mt-2">
-              {aggregates.expected.toLocaleString('vi-VN')} ₫
-            </h3>
+        <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-xs border border-outline-variant/30 flex flex-col justify-between min-h-[120px] relative overflow-hidden">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <p className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">Dự kiến thu (Tháng {currentMonth}/{currentYear})</p>
+              <h3 className="text-[22px] font-extrabold tracking-tight text-on-surface mt-1">
+                {aggregates.expected.toLocaleString('vi-VN')} ₫
+              </h3>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <TrendingUp className="w-4.5 h-4.5" />
+            </div>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-emerald-600">
-            <TrendingUp className="w-4 h-4" />
-            <span className="text-[12px] font-bold tracking-wide">Sĩ số đóng phí: {totalCount} học sinh</span>
+          <div className="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[11px] text-emerald-600 font-bold">
+            <span>Sĩ số đóng phí</span>
+            <span>{totalCount} học sinh</span>
           </div>
         </div>
         
         {/* Stat Card 2 */}
-        <div className="bg-surface-container-lowest rounded-[32px] p-6 shadow-sm border border-outline-variant/30 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-500/5 rounded-full blur-2xl"></div>
-          <div>
-            <p className="text-[13px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Đã thực thu</p>
-            <h3 className="text-[28px] font-bold italic font-playfair text-green-700 mt-2">
-              {aggregates.paid.toLocaleString('vi-VN')} ₫
-            </h3>
+        <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-xs border border-outline-variant/30 flex flex-col justify-between min-h-[120px] relative overflow-hidden">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <p className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">Đã thực thu</p>
+              <h3 className="text-[22px] font-extrabold tracking-tight text-green-600 mt-1">
+                {aggregates.paid.toLocaleString('vi-VN')} ₫
+              </h3>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center text-green-600 shrink-0">
+              <TrendingUp className="w-4.5 h-4.5" />
+            </div>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-on-surface-variant">
-            <span className="text-[12px] font-bold tracking-wide">
+          <div className="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[11px] text-on-surface-variant font-bold">
+            <span>Tỷ lệ hoàn thành</span>
+            <span className="text-green-600 font-extrabold">
               Đạt {aggregates.expected > 0 ? Math.round((aggregates.paid / aggregates.expected) * 100) : 0}% kế hoạch
             </span>
           </div>
         </div>
 
         {/* Stat Card 3 */}
-        <div className="bg-red-50/50 dark:bg-red-950/5 rounded-[32px] p-6 shadow-sm border border-red-200/50 dark:border-red-900/20 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-500/5 rounded-full blur-2xl"></div>
-          <div>
-            <p className="text-[13px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-1">Còn nợ / Chưa thanh toán</p>
-            <h3 className="text-[28px] font-bold italic font-playfair text-red-700 dark:text-red-400 mt-2">
-              {aggregates.remaining.toLocaleString('vi-VN')} ₫
-            </h3>
+        <div className="bg-red-50/50 dark:bg-red-950/5 rounded-2xl p-5 shadow-xs border border-red-200/50 dark:border-red-900/20 flex flex-col justify-between min-h-[120px] relative overflow-hidden">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <p className="text-[10px] font-extrabold text-red-750 dark:text-red-400 uppercase tracking-wider">Còn nợ / Chưa thanh toán</p>
+              <h3 className="text-[22px] font-extrabold tracking-tight text-red-600 dark:text-red-400 mt-1">
+                {aggregates.remaining.toLocaleString('vi-VN')} ₫
+              </h3>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center text-red-600 shrink-0">
+              <AlertCircle className="w-4.5 h-4.5" />
+            </div>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-red-700 dark:text-red-400">
-            <AlertCircle className="w-4 h-4" />
-            <span className="text-[12px] font-bold tracking-wide">
-              {aggregates.unpaidCount} học sinh chưa hoàn thành ({aggregates.overdueCount} quá hạn)
+          <div className="mt-3 pt-2 border-t border-red-200/30 dark:border-red-900/10 flex items-center justify-between text-[11px] text-red-700 dark:text-red-400 font-bold">
+            <span>Chưa hoàn thành</span>
+            <span>
+              {aggregates.unpaidCount} học sinh ({aggregates.overdueCount} quá hạn)
             </span>
           </div>
         </div>
