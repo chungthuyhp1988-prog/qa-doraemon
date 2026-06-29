@@ -494,6 +494,25 @@ export function Teachers() {
         const res = await api.create('users', userPayload);
         if (res.error) throw new Error(res.error);
 
+        // Tự động phân công lớp chủ nhiệm nếu có cột Lớp trong Excel
+        const rawClass = row['Lớp'] || row['Lớp phụ trách'];
+        if (role === 'teacher' && rawClass && classesList.length > 0) {
+          const cleanClassName = String(rawClass).toLowerCase().replace(/\s+/g, '');
+          const matchedClass = classesList.find((c: any) => 
+            c.name.toLowerCase().replace(/\s+/g, '') === cleanClassName
+          );
+          
+          if (matchedClass) {
+            await api.create('class_teachers', {
+              class_id: matchedClass.id,
+              teacher_id: teacherId,
+              is_homeroom: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+
         successCount++;
       } catch (err: any) {
         console.error(err);
