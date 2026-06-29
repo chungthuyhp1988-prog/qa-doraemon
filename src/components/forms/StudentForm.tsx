@@ -38,7 +38,7 @@ const studentFormSchema = z.object({
   class_id: z.string().nullable().optional().or(z.literal('')),
   address: z.string().optional().nullable(),
   enrollment_date: z.string().optional(),
-  status: z.enum(['active', 'registered', 'waiting', 'suspended', 'graduated', 'transferred']).default('active'),
+  status: z.enum(['active', 'registered', 'waiting', 'suspended', 'graduated', 'transferred', 'future']).default('active'),
   profile_image_url: z.string().nullable().optional(),
   medical_notes: z.string().optional().nullable(),
   allergies: z.string().optional().nullable(),
@@ -77,7 +77,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
     class_id: student?.class_id || '',
     address: student?.address || '',
     enrollment_date: student?.enrollment_date ? student.enrollment_date.split('T')[0] : new Date().toISOString().split('T')[0],
-    status: student?.status || 'active',
+    status: student?.status === 'waiting' && student?.target_school_year === '2027-2028' ? 'future' : (student?.status || 'active'),
     profile_image_url: student?.profile_image_url || '',
     medical_notes: student?.medical_notes || '',
     allergies: student?.allergies || '',
@@ -118,6 +118,21 @@ export const StudentForm: React.FC<StudentFormProps> = ({
   const onSubmit = async (values: StudentFormValues) => {
     setLoading(true);
     try {
+      let statusValue = values.status;
+      let targetSchoolYearValue = values.target_school_year || null;
+
+      if (values.status === 'future') {
+        statusValue = 'waiting';
+        targetSchoolYearValue = '2027-2028';
+      } else if (values.status === 'waiting') {
+        statusValue = 'waiting';
+        if (!targetSchoolYearValue) {
+          targetSchoolYearValue = '2026-2027';
+        }
+      } else {
+        targetSchoolYearValue = null;
+      }
+
       const studentPayload = {
         school_id: schoolId,
         full_name: values.full_name,
@@ -127,13 +142,13 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         class_id: values.class_id || null,
         address: values.address || null,
         enrollment_date: values.enrollment_date || new Date().toISOString().split('T')[0],
-        status: values.status,
+        status: statusValue as any,
         profile_image_url: values.profile_image_url || null,
         medical_notes: values.medical_notes || null,
         allergies: values.allergies || null,
         priority_status: values.priority_status || null,
         registration_date: values.registration_date || null,
-        target_school_year: values.target_school_year || null,
+        target_school_year: targetSchoolYearValue,
       };
 
       if (student?.id) {
@@ -316,11 +331,11 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                   label="Trạng thái học sinh"
                   options={[
                     { value: 'active', label: 'Đang học' },
-                    { value: 'registered', label: 'Đã ghi danh (Chưa nhập học)' },
-                    { value: 'waiting', label: 'Đăng ký chờ' },
+                    { value: 'registered', label: 'Đã ghi danh' },
+                    { value: 'waiting', label: 'Danh sách chờ' },
                     { value: 'suspended', label: 'Tạm nghỉ' },
-                    { value: 'graduated', label: 'Tốt nghiệp' },
-                    { value: 'transferred', label: 'Chuyển trường' },
+                    { value: 'graduated', label: 'Đã tốt nghiệp' },
+                    { value: 'transferred', label: 'Đã chuyển trường' },
                   ]}
                   error={errors.status?.message}
                   {...register('status')}
@@ -328,12 +343,12 @@ export const StudentForm: React.FC<StudentFormProps> = ({
 
                 {(() => {
                   const currentStatus = watch('status');
-                  if (currentStatus === 'waiting' || currentStatus === 'registered') {
+                  if (currentStatus === 'waiting' || currentStatus === 'future' || currentStatus === 'registered') {
                     return (
                       <>
                         <Input
                           type="date"
-                          label={currentStatus === 'waiting' ? "Ngày đăng ký chờ" : "Ngày ghi danh"}
+                          label={currentStatus === 'registered' ? "Ngày ghi danh" : "Ngày đăng ký chờ"}
                           error={errors.registration_date?.message}
                           {...register('registration_date')}
                         />
@@ -343,13 +358,45 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                           error={errors.target_school_year?.message}
                           {...register('target_school_year')}
                         />
-                        <div className="sm:col-span-2">
-                          <Input
-                            label="Đối tượng ưu tiên"
-                            placeholder="Ví dụ: Con thương binh, gia đình chính sách, có anh chị học cùng trường..."
-                            error={errors.priority_status?.message}
-                            {...register('priority_status')}
-                          />
+                        <div className="sm:col-span-2 space-y-2">
+                          <label className="text-[13px] font-extrabold text-on-surface-variant uppercase tracking-wider block">
+                            Đối tượng ưu tiên
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            {[
+                              { value: '', label: 'Không ưu tiên' },
+                              { value: 'Con GVNV', label: 'Ưu tiên 1 (Con GVNV)' },
+                              { value: 'Anh chị đang học ở trường', label: 'Ưu tiên 2 (Anh chị đang học ở trường)' },
+                              { value: 'HĐQT', label: 'Ưu tiên 3 (HĐQT)' },
+                              { value: 'Phụ huynh cũ', label: 'Ưu tiên 4 (Phụ huynh cũ)' }
+                            ].map((opt) => {
+                              const isChecked = watch('priority_status') === opt.value || (!watch('priority_status') && opt.value === '');
+                              return (
+                                <label
+                                  key={opt.value}
+                                  className={cn(
+                                    "border rounded-xl p-2.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-surface-container select-none min-h-[54px]",
+                                    isChecked
+                                      ? "border-primary bg-primary/5 text-primary font-bold shadow-2xs"
+                                      : "border-outline-variant/60 text-on-surface-variant"
+                                  )}
+                                >
+                                  <input
+                                    type="radio"
+                                    value={opt.value}
+                                    className="sr-only"
+                                    {...register('priority_status')}
+                                  />
+                                  <span className="text-[12px] leading-tight">{opt.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          {errors.priority_status?.message && (
+                            <p className="text-[11px] font-bold text-error mt-1">
+                              {errors.priority_status.message}
+                            </p>
+                          )}
                         </div>
                       </>
                     );

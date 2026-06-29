@@ -6,9 +6,11 @@ import {
   Search,
   Phone,
   User,
-  FileSpreadsheet
+  FileSpreadsheet,
+  GraduationCap
 } from "lucide-react";
 import { api } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { StudentForm } from "../components/forms/StudentForm";
 import { StudentDetailPanel } from "../components/details/StudentDetailPanel";
 import { 
@@ -35,14 +37,24 @@ export function Students() {
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [pageSize, setPageSize] = useState(25);
+  
+  // Selection state for Bulk Actions
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Import modal state
   const [isImportOpen, setIsImportOpen] = useState(false);
 
-  // Reset class filter when academic year changes
+  // Reset class filter and selection when academic year changes
   useEffect(() => {
     setSelectedClassId("all");
+    setSelectedKeys(new Set());
   }, [selectedAcademicYearId]);
+
+  // Reset selection when tab or class changes
+  useEffect(() => {
+    setSelectedKeys(new Set());
+  }, [selectedStatus, selectedClassId]);
 
   // Debounce search term
   useEffect(() => {
@@ -96,9 +108,19 @@ export function Students() {
         filters.class_id = selectedClassId;
       }
 
+      let apiPageSize = pageSize;
+      if (selectedStatus === 'waiting' || selectedStatus === 'future') {
+        apiPageSize = 1000;
+      }
+
       return api.getAll(
         'students',
-        { page: 1, pageSize, sortBy: 'full_name', sortOrder: 'asc' },
+        { 
+          page: 1, 
+          pageSize: apiPageSize, 
+          sortBy: 'full_name', 
+          sortOrder: 'asc' 
+        },
         {
           search: debouncedSearch || undefined,
           filters: Object.keys(filters).length > 0 ? filters : undefined
@@ -129,6 +151,92 @@ export function Students() {
   const totalCount = selectedStatus === 'waiting' || selectedStatus === 'future' 
     ? studentsData.length 
     : (studentsResponse?.data?.count || 0);
+
+  const handleBulkStatusUpdate = async (newStatus: string) => {
+    if (selectedKeys.size === 0) return;
+    
+    let statusLabel = "";
+    let statusValue = newStatus;
+    let targetSchoolYearValue: string | null = null;
+
+    switch(newStatus) {
+      case 'active': statusLabel = "Đang học"; break;
+      case 'registered': statusLabel = "Đã ghi danh"; break;
+      case 'waiting': 
+        statusLabel = "Danh sách chờ"; 
+        targetSchoolYearValue = "2026-2027";
+        break;
+      case 'future': 
+        statusLabel = "Đăng ký năm tới"; 
+        statusValue = "waiting";
+        targetSchoolYearValue = "2027-2028";
+        break;
+      case 'graduated': statusLabel = "Đã tốt nghiệp"; break;
+      case 'transferred': statusLabel = "Đã chuyển trường"; break;
+      default: statusLabel = newStatus;
+    }
+
+    if (!window.confirm(`Bạn có chắc chắn muốn chuyển trạng thái của ${selectedKeys.size} học sinh sang "${statusLabel}"?`)) {
+      return;
+    }
+
+    setIsBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      const updatePayload: any = { 
+        status: statusValue,
+        target_school_year: targetSchoolYearValue
+      };
+
+      const { error } = await supabase
+        .from('students')
+        .update(updatePayload as never)
+        .in('id', ids);
+
+      if (error) throw error;
+
+      toast.success(`Đã chuyển trạng thái thành công cho ${ids.length} học sinh sang "${statusLabel}"!`);
+      setSelectedKeys(new Set());
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Có lỗi xảy ra: " + (err.message || "Lỗi hệ thống"));
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkClassAssign = async (classId: string, className: string) => {
+    if (selectedKeys.size === 0) return;
+
+    if (!window.confirm(`Bạn có chắc chắn muốn xếp ${selectedKeys.size} học sinh đã chọn vào lớp "${className}"?\nHành động này cũng sẽ tự động chuyển trạng thái học sinh sang "Đang học".`)) {
+      return;
+    }
+
+    setIsBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      const { error } = await supabase
+        .from('students')
+        .update({ 
+          class_id: classId,
+          status: 'active',
+          target_school_year: null
+        } as never)
+        .in('id', ids);
+
+      if (error) throw error;
+
+      toast.success(`Đã xếp lớp thành công cho ${ids.length} học sinh vào lớp "${className}"!`);
+      setSelectedKeys(new Set());
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Có lỗi xảy ra khi xếp lớp: " + (err.message || "Lỗi hệ thống"));
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
 
   const isFetchingMore = isFetching && studentsData.length < totalCount && pageSize > 25;
   const isRefetchingNewFilter = isFetching && !isFetchingMore;
@@ -589,11 +697,23 @@ export function Students() {
         {
           key: "priority_status" as any,
           header: "Đối tượng ưu tiên",
-          render: (row: any) => (
-            <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[150px]" title={row.priority_status}>
-              {row.priority_status || 'Không'}
-            </span>
-          )
+          render: (row: any) => {
+            const getPriorityLabel = (val: string) => {
+              if (!val) return 'Không';
+              switch (val) {
+                case 'Con GVNV': return 'Ưu tiên 1 (Con GVNV)';
+                case 'Anh chị đang học ở trường': return 'Ưu tiên 2 (Anh chị đang học ở trường)';
+                case 'HĐQT': return 'Ưu tiên 3 (HĐQT)';
+                case 'Phụ huynh cũ': return 'Ưu tiên 4 (Phụ huynh cũ)';
+                default: return val;
+              }
+            };
+            return (
+              <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[180px]" title={getPriorityLabel(row.priority_status)}>
+                {getPriorityLabel(row.priority_status)}
+              </span>
+            );
+          }
         }
       );
     } else {
@@ -756,6 +876,84 @@ export function Students() {
         </button>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedKeys.size > 0 && (
+        <div className="bg-primary/5 border border-primary/20 p-3.5 rounded-2xl flex flex-wrap items-center gap-3 animate-in slide-in-from-top-2 duration-200 shadow-2xs">
+          <span className="text-[13.5px] font-extrabold text-primary flex items-center gap-1.5">
+            <User className="w-4 h-4 text-primary" />
+            Đã chọn <span className="underline decoration-2">{selectedKeys.size}</span> học sinh
+          </span>
+          <button
+            onClick={() => setSelectedKeys(new Set())}
+            className="text-[13px] font-bold text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer bg-surface-container-high px-2.5 py-1 rounded-lg"
+          >
+            Hủy chọn
+          </button>
+          
+          <div className="h-4 w-px bg-outline-variant/60 mx-1 hidden sm:block" />
+
+          {(selectedStatus === 'waiting' || selectedStatus === 'future') && (
+            <>
+              <span className="text-[13px] font-extrabold text-on-surface-variant flex items-center gap-1.5">
+                <GraduationCap className="w-4 h-4 text-primary" />
+                Xếp nhanh vào lớp:
+              </span>
+              <select
+                value=""
+                disabled={isBulkUpdating}
+                onChange={(e) => {
+                  const classId = e.target.value;
+                  const className = e.target.options[e.target.selectedIndex].text;
+                  if (classId) handleBulkClassAssign(classId, className);
+                }}
+                className="px-2.5 py-1.5 rounded-xl text-[12.5px] font-bold border cursor-pointer bg-white text-on-surface border-outline-variant/60 hover:bg-surface-container outline-none transition-all shadow-3xs"
+              >
+                <option value="">-- Chọn lớp học --</option>
+                {filteredClassesList.map((c) => {
+                  const gradeLabel = c.grade_level === 'nha_tre' ? 'Nhà trẻ' : c.grade_level === 'mam' ? 'Mầm' : c.grade_level === 'choi' ? 'Chồi' : c.grade_level === 'la' ? 'Lá' : '';
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {gradeLabel ? `${c.name} (${gradeLabel})` : c.name}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="h-4 w-px bg-outline-variant/60 mx-1 hidden sm:block" />
+            </>
+          )}
+          
+          <span className="text-[13px] font-extrabold text-on-surface-variant font-medium">Chuyển trạng thái:</span>
+          
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: 'active', label: 'Đang học', color: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+              { value: 'registered', label: 'Đã ghi danh', color: 'bg-purple-600 hover:bg-purple-700 text-white' },
+              { value: 'waiting', label: 'Danh sách chờ', color: 'bg-amber-500 hover:bg-amber-600 text-white' },
+              { value: 'future', label: 'Đăng ký năm tới', color: 'bg-pink-600 hover:bg-pink-700 text-white' },
+              { value: 'graduated', label: 'Đã tốt nghiệp', color: 'bg-sky-600 hover:bg-sky-700 text-white' },
+              { value: 'transferred', label: 'Đã chuyển trường', color: 'bg-slate-500 hover:bg-slate-600 text-white' }
+            ]
+              .filter(item => {
+                return item.value !== selectedStatus;
+              })
+              .map(item => (
+                <button
+                  key={item.value}
+                  disabled={isBulkUpdating}
+                  onClick={() => handleBulkStatusUpdate(item.value)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-[12px] font-extrabold transition-all shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50",
+                    item.color
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      )}
+
       {/* Main Student List — Full Width Layout */}
       <div className="bg-surface rounded-2xl border border-outline-variant/30 shadow-xs overflow-hidden flex flex-col min-h-[400px]">
         {/* Main Table Area */}
@@ -797,6 +995,9 @@ export function Students() {
               columns={tableColumns}
               data={studentsData}
               rowKey={(row) => row.id}
+              selectable={true}
+              selectedKeys={selectedKeys}
+              onSelectionChange={setSelectedKeys}
               onRowClick={(row) => handleOpenDetail(row.id)}
               onScrollToBottom={handleScrollToBottom}
               loadingMore={isFetchingMore}

@@ -37,6 +37,66 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!student) return;
+
+    let statusValue = newStatus;
+    let targetSchoolYearValue: string | null = null;
+
+    if (newStatus === 'future') {
+      statusValue = 'waiting';
+      targetSchoolYearValue = '2027-2028';
+    } else if (newStatus === 'waiting') {
+      statusValue = 'waiting';
+      targetSchoolYearValue = '2026-2027';
+    }
+
+    // Check if unchanged
+    const currentStatusValue = student.status === 'waiting' && student.target_school_year === '2027-2028' ? 'future' : student.status;
+    if (newStatus === currentStatusValue) return;
+
+    setIsUpdatingStatus(true);
+    try {
+      const res = await api.update('students', studentId, { 
+        status: statusValue, 
+        target_school_year: targetSchoolYearValue 
+      });
+      if (res.error) throw new Error(res.error);
+      
+      toast.success('Cập nhật trạng thái học sinh thành công!');
+      queryClient.invalidateQueries({ queryKey: ['student-detail', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi cập nhật trạng thái: ' + (err.message || 'Lỗi hệ thống'));
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handlePriorityChange = async (newPriority: string) => {
+    if (!student) return;
+    const priorityVal = newPriority || null;
+    if (priorityVal === student.priority_status) return;
+
+    setIsUpdatingStatus(true);
+    try {
+      const res = await api.update('students', studentId, { priority_status: priorityVal });
+      if (res.error) throw new Error(res.error);
+      
+      toast.success('Cập nhật đối tượng ưu tiên thành công!');
+      queryClient.invalidateQueries({ queryKey: ['student-detail', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi cập nhật đối tượng ưu tiên: ' + (err.message || 'Lỗi hệ thống'));
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   // 1. Fetch Student Detail
   const { data: studentResponse, isLoading: isLoadingStudent } = useQuery({
     queryKey: ['student-detail', studentId],
@@ -134,13 +194,13 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
       case 'registered':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-purple-50 text-purple-700 border border-purple-200 font-bold uppercase tracking-wider">Đã ghi danh</span>;
       case 'waiting':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-bold uppercase tracking-wider">Đăng ký chờ</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-bold uppercase tracking-wider">Danh sách chờ</span>;
       case 'suspended':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-bold uppercase tracking-wider">Tạm nghỉ</span>;
       case 'graduated':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-blue-50 text-blue-700 border border-blue-200 font-bold uppercase tracking-wider">Tốt nghiệp</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-blue-50 text-blue-700 border border-blue-200 font-bold uppercase tracking-wider">Đã tốt nghiệp</span>;
       case 'transferred':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-gray-50 text-gray-600 border border-gray-200 font-bold uppercase tracking-wider">Chuyển trường</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-gray-50 text-gray-600 border border-gray-200 font-bold uppercase tracking-wider">Đã chuyển trường</span>;
       default:
         return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-gray-50 text-gray-600 border border-gray-200 font-bold uppercase tracking-wider">{status}</span>;
     }
@@ -166,7 +226,27 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
               <h2 className="text-[18px] font-bold text-on-surface leading-tight font-playfair italic">
                 {student.full_name}
               </h2>
-              {getStatusBadge(student.status)}
+              <select
+                value={student.status === 'waiting' && student.target_school_year === '2027-2028' ? 'future' : student.status}
+                disabled={isUpdatingStatus}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider border cursor-pointer outline-none transition-all shadow-3xs",
+                  student.status === 'active' && "bg-emerald-50 text-emerald-700 border-emerald-250 hover:bg-emerald-100",
+                  student.status === 'registered' && "bg-purple-50 text-purple-700 border-purple-250 hover:bg-purple-100",
+                  (student.status === 'waiting' && student.target_school_year !== '2027-2028') && "bg-amber-50 text-amber-700 border-amber-250 hover:bg-amber-100",
+                  (student.status === 'waiting' && student.target_school_year === '2027-2028') && "bg-pink-50 text-pink-700 border-pink-250 hover:bg-pink-100",
+                  student.status === 'graduated' && "bg-blue-50 text-blue-700 border-blue-250 hover:bg-blue-100",
+                  student.status === 'transferred' && "bg-slate-50 text-slate-700 border-slate-250 hover:bg-slate-100"
+                )}
+              >
+                <option value="active">Đang học</option>
+                <option value="registered">Đã ghi danh</option>
+                <option value="waiting">Danh sách chờ</option>
+                <option value="future">Đăng ký năm tới</option>
+                <option value="graduated">Đã tốt nghiệp</option>
+                <option value="transferred">Đã chuyển trường</option>
+              </select>
             </div>
             <p className="text-[12px] text-on-surface-variant font-medium mt-1">
               Mã HS: {student.student_code} • Lớp: {student.classes?.name || 'Chưa xếp lớp'}
@@ -254,8 +334,19 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
                       <div className="text-on-surface font-semibold">{student.target_school_year || '—'}</div>
                     </div>
                     <div className="col-span-2">
-                      <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">Đối tượng ưu tiên</div>
-                      <div className="text-on-surface font-semibold">{student.priority_status || 'Không'}</div>
+                      <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-1">Đối tượng ưu tiên</div>
+                      <select
+                        value={student.priority_status || ''}
+                        disabled={isUpdatingStatus}
+                        onChange={(e) => handlePriorityChange(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-xl text-[13px] font-semibold border cursor-pointer bg-white text-on-surface border-outline-variant/60 hover:bg-surface-container outline-none transition-all shadow-3xs w-full max-w-[320px]"
+                      >
+                        <option value="">Không ưu tiên</option>
+                        <option value="Con GVNV">Ưu tiên 1 (Con GVNV)</option>
+                        <option value="Anh chị đang học ở trường">Ưu tiên 2 (Anh chị đang học ở trường)</option>
+                        <option value="HĐQT">Ưu tiên 3 (HĐQT)</option>
+                        <option value="Phụ huynh cũ">Ưu tiên 4 (Phụ huynh cũ)</option>
+                      </select>
                     </div>
                   </>
                 )}

@@ -274,7 +274,7 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
         const title = panel.title || `Panel ${index + 1}`;
         const displayTitle = title.length > 24 ? title.slice(0, 24) + '…' : title;
 
-        const tabTop = 16 + index * (TAB_LENGTH + TAB_GAP);
+        const tabTop = index * (TAB_LENGTH + TAB_GAP);
 
         const measuredLeft = panelLefts[panel.id];
         const panelLeftEdgeScreen = measuredLeft !== undefined 
@@ -348,7 +348,7 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
           className="slide-panel-tab pointer-events-auto absolute hidden md:block"
           style={{
             right: `calc(100% - ${(panelLefts[panels[panels.length - 1].id] !== undefined ? panelLefts[panels[panels.length - 1].id] : (sidebarWidth + (isSidebarCollapsed ? COLLAPSED_BASE_GAP : BASE_GAP) + (panels.length - 1) * STACKING_OFFSET)) + 1}px)`,
-            top: `${16 + panels.length * (TAB_LENGTH + TAB_GAP) + 8}px`,
+            top: `${panels.length * (TAB_LENGTH + TAB_GAP) + 8}px`,
             zIndex: 45 + panels.length * 2 + 2,
           }}
         >
