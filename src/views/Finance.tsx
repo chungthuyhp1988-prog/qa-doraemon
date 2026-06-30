@@ -23,6 +23,34 @@ import { toast } from "../stores/toastStore";
 import { zalo } from "../lib/zalo";
 import { format } from "date-fns";
 import { useAppStore } from "../stores/appStore";
+import type { TuitionFeeRow, ClassRow, GuardianRow, FeeStatus } from "../types";
+
+/** Fee row joined with student, class and guardian relations */
+interface FeeStudentRelation {
+  id: string;
+  full_name: string;
+  student_code: string;
+  classes: Pick<ClassRow, 'name'> | null;
+  guardians: GuardianRow[];
+}
+
+interface FeeWithStudent extends TuitionFeeRow {
+  students: FeeStudentRelation | null;
+}
+
+/** Lightweight row returned by the aggregation query */
+interface FeeAggregate {
+  total_amount: number;
+  paid_amount: number;
+  status: FeeStatus;
+}
+
+/** Chart data point for the monthly revenue chart */
+interface ChartDataPoint {
+  month: string;
+  expected: number;
+  paid: number;
+}
 import {
   ResponsiveContainer,
   AreaChart,
@@ -67,11 +95,11 @@ export function Finance() {
   const { data: classesResponse } = useQuery({
     queryKey: ['classes-list', selectedAcademicYearId],
     queryFn: () => {
-      const filters: Record<string, any> = { is_active: true };
+      const filters: Record<string, string | number | boolean> = { is_active: true };
       if (selectedAcademicYearId) {
         filters.academic_year_id = selectedAcademicYearId;
       }
-      return api.getAll('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+      return api.getAll<Pick<ClassRow, 'id' | 'name'>>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
     },
     enabled: !!selectedAcademicYearId
   });
@@ -81,7 +109,7 @@ export function Finance() {
   const { data: feesResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['tuition-fees-list', selectedAcademicYearId, selectedMonthYear, selectedClassId, selectedStatus, page],
     queryFn: async () => {
-      const filters: Record<string, any> = {
+      const filters: Record<string, string | number | boolean> = {
         month: currentMonth,
         year: currentYear
       };
@@ -92,14 +120,14 @@ export function Finance() {
 
       // Filter by class_id if selected (requires querying students first because of PostgREST schema nesting)
       if (selectedClassId !== "all") {
-        const { data: studentData } = await api.getAll(
+        const { data: studentData } = await api.getAll<Pick<{ id: string }, 'id'>>(
           'students',
           { page: 1, pageSize: 1000 },
           { filters: { class_id: selectedClassId } },
           'id'
         );
-        const studentIds = studentData?.data?.map((s: any) => s.id) || [];
-        
+        const studentIds = studentData?.data?.map((s) => s.id) || [];
+
         if (studentIds.length > 0) {
           filters.student_id = `in.(${studentIds.join(',')})`;
         } else {
@@ -107,7 +135,7 @@ export function Finance() {
         }
       }
 
-      return api.getAll(
+      return api.getAll<FeeWithStudent>(
         'tuition_fees',
         { page, pageSize },
         { filters },
@@ -119,7 +147,7 @@ export function Finance() {
   const rawFeesData = feesResponse?.data?.data || [];
   
   // Sort fees by student full_name
-  const feesData = [...rawFeesData].sort((a: any, b: any) => {
+  const feesData = [...rawFeesData].sort((a, b) => {
     const nameA = a.students?.full_name || '';
     const nameB = b.students?.full_name || '';
     return nameA.localeCompare(nameB, 'vi');
@@ -131,7 +159,7 @@ export function Finance() {
   // 3. Mark Paid mutation
   const markPaidMutation = useMutation({
     mutationFn: async (feeId: string) => {
-      const feeItem = rawFeesData.find((f: any) => f.id === feeId);
+      const feeItem = rawFeesData.find((f) => f.id === feeId);
       if (!feeItem) throw new Error('Không tìm thấy phiếu thu');
 
       return api.update('tuition_fees', feeId, {
@@ -149,7 +177,7 @@ export function Finance() {
         queryClient.invalidateQueries({ queryKey: ['tuition-fees-list'] });
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error('Lỗi khi cập nhật thanh toán', err.message || 'Lỗi hệ thống');
     }
   });
@@ -158,19 +186,19 @@ export function Finance() {
   const { data: monthAggregates } = useQuery({
     queryKey: ['month-aggregates-finance', selectedMonthYear, selectedClassId],
     queryFn: async () => {
-      const filters: Record<string, any> = {
+      const filters: Record<string, string | number | boolean> = {
         month: currentMonth,
         year: currentYear
       };
 
       if (selectedClassId !== "all") {
-        const { data: studentData } = await api.getAll(
+        const { data: studentData } = await api.getAll<Pick<{ id: string }, 'id'>>(
           'students',
           { page: 1, pageSize: 1000 },
           { filters: { class_id: selectedClassId } },
           'id'
         );
-        const studentIds = studentData?.data?.map((s: any) => s.id) || [];
+        const studentIds = studentData?.data?.map((s) => s.id) || [];
         if (studentIds.length > 0) {
           filters.student_id = `in.(${studentIds.join(',')})`;
         } else {
@@ -178,7 +206,7 @@ export function Finance() {
         }
       }
 
-      const res = await api.getAll('tuition_fees', { page: 1, pageSize: 1000 }, { filters }, 'total_amount, paid_amount, status');
+      const res = await api.getAll<FeeAggregate>('tuition_fees', { page: 1, pageSize: 1000 }, { filters }, 'total_amount, paid_amount, status');
       return res.data?.data || [];
     }
   });
@@ -192,7 +220,7 @@ export function Finance() {
   };
 
   if (monthAggregates) {
-    monthAggregates.forEach((fee: any) => {
+    monthAggregates.forEach((fee) => {
       aggregates.expected += Number(fee.total_amount || 0);
       aggregates.paid += Number(fee.paid_amount || 0);
       if (fee.status !== 'paid') {
@@ -206,17 +234,18 @@ export function Finance() {
   }
 
   // Fetch monthly summary via RPC (replaces client-side 5000-row aggregation)
-  const { data: chartData = [] } = useQuery({
+  const { data: chartData = [] } = useQuery<ChartDataPoint[]>({
     queryKey: ['finance-chart-data', selectedAcademicYearId],
     queryFn: async () => {
       if (!selectedAcademicYearId) return [];
 
+      // supabase.rpc typing requires `as any` due to dynamic RPC function signatures
       const { data, error } = await (supabase.rpc as any)('finance_monthly_summary', {
         p_academic_year_id: selectedAcademicYearId,
       });
       if (error) throw error;
 
-      return ((data as any[]) || []).map((row: any) => ({
+      return ((data as Record<string, unknown>[]) || []).map((row) => ({
         month: `Tháng ${row.month}`,
         expected: Number(row.expected || 0),
         paid: Number(row.paid || 0),
@@ -234,7 +263,7 @@ export function Finance() {
     try {
       const headers = ['Mã học sinh', 'Họ tên học sinh', 'Lớp học', 'Khoản thu cơ bản (VND)', 'Tiền ăn (VND)', 'Khoản thu khác (VND)', 'Miễn giảm (VND)', 'Tổng cộng (VND)', 'Đã đóng (VND)', 'Trạng thái', 'Hạn đóng'];
       
-      const rows = feesData.map((fee: any) => [
+      const rows = feesData.map((fee) => [
         fee.students?.student_code || '',
         fee.students?.full_name || '',
         fee.students?.classes?.name || 'Chưa xếp lớp',
@@ -250,7 +279,7 @@ export function Finance() {
 
       const csvContent = [
         headers.join(','),
-        ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+        ...rows.map((e: (string | number)[]) => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
       ].join('\n');
 
       const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -262,14 +291,15 @@ export function Finance() {
       link.click();
       document.body.removeChild(link);
       toast.success('Xuất file thành công!', 'File danh sách học phí đã được tải về máy của bạn.');
-    } catch (err: any) {
-      toast.error('Lỗi khi xuất file', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
+      toast.error('Lỗi khi xuất file', message);
     }
   };
 
   // Handle Zalo Reminder action
-  const handleZaloReminder = async (feeItem: any) => {
-    const primaryGuardian = feeItem.students?.guardians?.find((g: any) => g.is_primary) || feeItem.students?.guardians?.[0];
+  const handleZaloReminder = async (feeItem: FeeWithStudent) => {
+    const primaryGuardian = feeItem.students?.guardians?.find((g) => g.is_primary) || feeItem.students?.guardians?.[0];
     const phone = primaryGuardian?.phone;
     const studentName = feeItem.students?.full_name || 'Học sinh';
 
@@ -287,9 +317,10 @@ export function Finance() {
       } else {
         throw new Error(res.error || 'Lỗi gửi tin nhắn');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error('Lỗi khi gửi Zalo OA', err.message || 'Lỗi kết nối');
+      const message = err instanceof Error ? err.message : 'Lỗi kết nối';
+      toast.error('Lỗi khi gửi Zalo OA', message);
     } finally {
       setIsZaloSendingId(null);
     }
@@ -353,7 +384,7 @@ export function Finance() {
     });
   };
 
-  const handleEditFee = (fee: any) => {
+  const handleEditFee = (fee: FeeWithStudent) => {
     openPanel({
       title: 'Chỉnh sửa phiếu thu học phí',
       icon: <Edit2 size={14} />,
@@ -367,11 +398,11 @@ export function Finance() {
     });
   };
 
-  const tableColumns: TableColumn<any>[] = [
+  const tableColumns: TableColumn<FeeWithStudent>[] = [
     {
       key: "student",
       header: "Học sinh",
-      render: (row: any) => (
+      render: (row) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-primary/5 border border-primary/20 flex items-center justify-center text-primary font-bold text-[11px] shrink-0 font-playfair">
             {row.students?.full_name?.substring(0, 2).toUpperCase() || 'HS'}
@@ -388,7 +419,7 @@ export function Finance() {
     {
       key: "class",
       header: "Lớp học",
-      render: (row: any) => (
+      render: (row) => (
         <span className="font-semibold text-[13px] text-on-surface-variant">
           {row.students?.classes?.name || 'Chưa xếp lớp'}
         </span>
@@ -397,7 +428,7 @@ export function Finance() {
     {
       key: "total_amount",
       header: "Cần đóng (VNĐ)",
-      render: (row: any) => (
+      render: (row) => (
         <span className="font-bold text-[14px] text-on-surface">
           {Number(row.total_amount).toLocaleString('vi-VN')} ₫
         </span>
@@ -406,7 +437,7 @@ export function Finance() {
     {
       key: "paid_amount",
       header: "Đã đóng (VNĐ)",
-      render: (row: any) => (
+      render: (row) => (
         <span className={cn(
           "font-semibold text-[13px]",
           row.status === 'paid' ? "text-green-700" : "text-on-surface-variant"
@@ -418,12 +449,12 @@ export function Finance() {
     {
       key: "status",
       header: "Trạng thái",
-      render: (row: any) => getStatusBadge(row.status)
+      render: (row) => getStatusBadge(row.status)
     },
     {
       key: "due_date",
       header: "Hạn đóng",
-      render: (row: any) => (
+      render: (row) => (
         <span className={cn(
           "text-[13px]",
           row.status === 'overdue' ? "text-red-700 font-bold" : "text-on-surface-variant"
@@ -433,10 +464,10 @@ export function Finance() {
       )
     },
     {
-      key: "actions" as any,
+      key: "actions",
       header: "Hành động",
-      render: (row: any) => {
-        const hasPhone = !!(row.students?.guardians?.find((g: any) => g.is_primary)?.phone || row.students?.guardians?.[0]?.phone);
+      render: (row) => {
+        const hasPhone = !!(row.students?.guardians?.find((g) => g.is_primary)?.phone || row.students?.guardians?.[0]?.phone);
 
         return (
           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>

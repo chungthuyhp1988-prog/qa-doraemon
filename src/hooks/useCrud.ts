@@ -6,7 +6,7 @@ import type { Database } from '../types/database';
 type TableName = keyof Database['public']['Tables'];
 
 interface UseCrudOptions {
-  queryKeyToInvalidate?: any[];
+  queryKeyToInvalidate?: unknown[];
   successMessages?: {
     create?: string;
     update?: string;
@@ -17,7 +17,7 @@ interface UseCrudOptions {
 export function useCrud(table: TableName, options: UseCrudOptions = {}) {
   const queryClient = useQueryClient();
   const invalidateKey = options.queryKeyToInvalidate || [table];
-  
+
   const messages = {
     create: options.successMessages?.create || 'Thêm mới thành công!',
     update: options.successMessages?.update || 'Cập nhật thành công!',
@@ -25,7 +25,7 @@ export function useCrud(table: TableName, options: UseCrudOptions = {}) {
   };
 
   const createMutation = useMutation({
-    mutationFn: (payload: any) => api.create(table, payload),
+    mutationFn: (payload: Record<string, unknown>) => api.create(table, payload),
     onSuccess: (res) => {
       if (res.error) {
         toast.error('Lỗi khi thêm mới', res.error);
@@ -34,13 +34,13 @@ export function useCrud(table: TableName, options: UseCrudOptions = {}) {
         queryClient.invalidateQueries({ queryKey: invalidateKey });
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error('Lỗi khi thêm mới', err.message || 'Lỗi hệ thống');
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: any }) => 
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
       api.update(table, id, payload),
     onSuccess: (res) => {
       if (res.error) {
@@ -48,11 +48,13 @@ export function useCrud(table: TableName, options: UseCrudOptions = {}) {
       } else {
         toast.success(messages.update);
         queryClient.invalidateQueries({ queryKey: invalidateKey });
-        // Also invalidate detail query key if it follows [table, id] pattern
-        queryClient.invalidateQueries({ queryKey: [table, res.data?.id] });
+        const updated = res.data as Record<string, unknown> | null;
+        if (updated?.id) {
+          queryClient.invalidateQueries({ queryKey: [table, updated.id] });
+        }
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error('Lỗi khi cập nhật', err.message || 'Lỗi hệ thống');
     },
   });
@@ -67,7 +69,7 @@ export function useCrud(table: TableName, options: UseCrudOptions = {}) {
         queryClient.invalidateQueries({ queryKey: invalidateKey });
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error('Lỗi khi xóa', err.message || 'Lỗi hệ thống');
     },
   });
@@ -82,7 +84,7 @@ export function useCrud(table: TableName, options: UseCrudOptions = {}) {
         queryClient.invalidateQueries({ queryKey: invalidateKey });
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error('Lỗi khi xóa', err.message || 'Lỗi hệ thống');
     },
   });

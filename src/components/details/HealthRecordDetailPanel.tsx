@@ -22,6 +22,7 @@ import { HealthRecordForm } from '../forms/HealthRecordForm';
 import { Button, ConfirmDialog } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { cn } from '../../lib/utils';
+import type { StudentRow, HealthRecordRow } from '../../types/database';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -35,7 +36,7 @@ import {
 
 interface HealthRecordDetailPanelProps {
   studentId: string;
-  studentsList: any[];
+  studentsList: { id: string; full_name: string; student_code?: string }[];
   onUpdateSuccess?: () => void;
 }
 
@@ -47,7 +48,7 @@ export const HealthRecordDetailPanel: React.FC<HealthRecordDetailPanelProps> = (
   const queryClient = useQueryClient();
   const { openPanel, closePanel } = useSlidePanel();
 
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<HealthRecordRow | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -56,14 +57,14 @@ export const HealthRecordDetailPanel: React.FC<HealthRecordDetailPanelProps> = (
     queryKey: ['student-health-info', studentId],
     queryFn: () => api.getById('students', studentId)
   });
-  const student = studentResponse?.data as any;
+  const student = studentResponse?.data as StudentRow | undefined;
 
   // 2. Fetch health records of selected student
   const { data: healthResponse, isLoading: isLoadingRecords } = useQuery({
     queryKey: ['health-records', studentId],
     queryFn: () => {
       if (!studentId) return { data: { data: [], count: 0 }, error: null, count: 0 };
-      return api.getAll<any>(
+      return api.getAll<HealthRecordRow>(
         'health_records',
         { page: 1, pageSize: 100, sortBy: 'record_date', sortOrder: 'asc' },
         { filters: { student_id: studentId } }
@@ -74,14 +75,14 @@ export const HealthRecordDetailPanel: React.FC<HealthRecordDetailPanelProps> = (
   const rawRecords = healthResponse?.data?.data || [];
   
   // Chart records
-  const chartData = rawRecords.map((r: any) => ({
+  const chartData = rawRecords.map((r: HealthRecordRow) => ({
     date: r.record_date ? new Date(r.record_date).toLocaleDateString('vi-VN', { month: '2-digit', year: '2-digit' }) : '',
     'Chiều cao (cm)': r.height_cm,
     'Cân nặng (kg)': r.weight_kg,
   }));
 
   // List records (descending date order)
-  const records = [...rawRecords].sort((a: any, b: any) => 
+  const records = [...rawRecords].sort((a: HealthRecordRow, b: HealthRecordRow) =>
     new Date(b.record_date).getTime() - new Date(a.record_date).getTime()
   );
 
@@ -105,7 +106,7 @@ export const HealthRecordDetailPanel: React.FC<HealthRecordDetailPanelProps> = (
     });
   };
 
-  const handleEditRecord = (rec: any) => {
+  const handleEditRecord = (rec: HealthRecordRow) => {
     openPanel({
       title: 'Chỉnh sửa lượt khám y tế',
       icon: <Edit2 size={14} />,

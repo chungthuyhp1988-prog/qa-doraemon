@@ -75,12 +75,6 @@ export const queryKeys = {
     topbar: (schoolId?: string) => ['topbar-notifications', schoolId] as const,
   },
 
-  // Registrations
-  registrations: {
-    all: ['registrations'] as const,
-    list: (search: string, page: number) => ['registrations-list', search, page] as const,
-  },
-
   // Settings / Academic Years
   academicYears: {
     all: ['academic-years'] as const,

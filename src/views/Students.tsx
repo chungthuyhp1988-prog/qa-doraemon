@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { 
-  Plus, 
-  Eye, 
+import {
+  Plus,
   Search,
   Phone,
   User,
@@ -13,17 +12,34 @@ import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { StudentForm } from "../components/forms/StudentForm";
 import { StudentDetailPanel } from "../components/details/StudentDetailPanel";
-import { 
-  useSlidePanel, 
-  Table, 
+import {
+  useSlidePanel,
+  Table,
   type TableColumn,
-  ExcelImportModal 
+  ExcelImportModal
 } from "../components/ui";
 import { cn } from "../lib/utils";
 import { exportToExcel, parseExcelDate, parseGender } from "../lib/excelHelper";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
 import { toast } from "../stores/toastStore";
+import type { StudentRow, StudentStatus, GuardianRow, GuardianInsert, ClassRow, GradeLevel } from "../types";
+
+// ── Local composite types for joined queries ──────────────────────────
+
+/** Student row with joined class and guardians from the select query */
+interface StudentWithRelations extends StudentRow {
+  classes: Pick<ClassRow, 'name' | 'grade_level'> | null;
+  guardians: GuardianRow[] | null;
+}
+
+/** Minimal class info returned by the classes-list query */
+type ClassListItem = Pick<ClassRow, 'id' | 'name' | 'grade_level'>;
+
+/** Shape of a parsed Excel import row (keys are Vietnamese column headers) */
+interface ExcelStudentRow {
+  [header: string]: string | number | undefined;
+}
 
 export function Students() {
   const { openPanel } = useSlidePanel();
@@ -77,15 +93,15 @@ export function Students() {
   const { data: classesResponse } = useQuery({
     queryKey: ['classes-list', selectedAcademicYearId],
     queryFn: () => {
-      const filters: Record<string, any> = {};
+      const filters: Record<string, string> = {};
       if (selectedAcademicYearId) {
         filters.academic_year_id = selectedAcademicYearId;
       }
-      return api.getAll('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name, grade_level');
+      return api.getAll<ClassListItem>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name, grade_level');
     },
     enabled: !!selectedAcademicYearId
   });
-  const classesList = (classesResponse?.data?.data as any[]) || [];
+  const classesList: ClassListItem[] = classesResponse?.data?.data ?? [];
 
   // List of all classes (grade filter removed)
   const filteredClassesList = classesList;
@@ -94,15 +110,15 @@ export function Students() {
   const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['students-list', selectedAcademicYearId, debouncedSearch, selectedClassId, selectedStatus, pageSize],
     queryFn: async () => {
-      const filters: Record<string, any> = {};
-      
+      const filters: Record<string, string> = {};
+
       // Filter by status based on active tab
       if (selectedStatus === 'waiting' || selectedStatus === 'future') {
         filters.status = 'waiting';
       } else {
         filters.status = selectedStatus;
       }
-      
+
       // Filter by specific class if selected (only applicable for active and registered tabs)
       if (selectedClassId !== "all" && (selectedStatus === 'active' || selectedStatus === 'registered')) {
         filters.class_id = selectedClassId;
@@ -113,13 +129,13 @@ export function Students() {
         apiPageSize = 1000;
       }
 
-      return api.getAll(
+      return api.getAll<StudentWithRelations>(
         'students',
-        { 
-          page: 1, 
-          pageSize: apiPageSize, 
-          sortBy: 'full_name', 
-          sortOrder: 'asc' 
+        {
+          page: 1,
+          pageSize: apiPageSize,
+          sortBy: 'full_name',
+          sortOrder: 'asc'
         },
         {
           search: debouncedSearch || undefined,
@@ -131,10 +147,10 @@ export function Students() {
     placeholderData: keepPreviousData
   });
 
-  const rawStudentsData = studentsResponse?.data?.data || [];
+  const rawStudentsData: StudentWithRelations[] = studentsResponse?.data?.data ?? [];
 
   // Client-side filtering for waiting and future lists based on birth year
-  const studentsData = (rawStudentsData as any[]).filter((student: any) => {
+  const studentsData = rawStudentsData.filter((student) => {
     if (selectedStatus === 'waiting') {
       if (!student.date_of_birth) return true;
       const birthYear = new Date(student.date_of_birth).getFullYear();
@@ -183,7 +199,7 @@ export function Students() {
     setIsBulkUpdating(true);
     try {
       const ids = Array.from(selectedKeys);
-      const updatePayload: any = { 
+      const updatePayload: { status: string; target_school_year: string | null } = {
         status: statusValue,
         target_school_year: targetSchoolYearValue
       };
@@ -198,9 +214,10 @@ export function Students() {
       toast.success(`Đã chuyển trạng thái thành công cho ${ids.length} học sinh sang "${statusLabel}"!`);
       setSelectedKeys(new Set());
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error("Có lỗi xảy ra: " + (err.message || "Lỗi hệ thống"));
+      const message = err instanceof Error ? err.message : "Lỗi hệ thống";
+      toast.error("Có lỗi xảy ra: " + message);
     } finally {
       setIsBulkUpdating(false);
     }
@@ -230,9 +247,10 @@ export function Students() {
       toast.success(`Đã xếp lớp thành công cho ${ids.length} học sinh vào lớp "${className}"!`);
       setSelectedKeys(new Set());
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error("Có lỗi xảy ra khi xếp lớp: " + (err.message || "Lỗi hệ thống"));
+      const message = err instanceof Error ? err.message : "Lỗi hệ thống";
+      toast.error("Có lỗi xảy ra khi xếp lớp: " + message);
     } finally {
       setIsBulkUpdating(false);
     }
@@ -277,7 +295,7 @@ export function Students() {
 
   const handleExportExcel = async () => {
     try {
-      const filters: Record<string, any> = {};
+      const filters: Record<string, string> = {};
       if (selectedStatus === 'waiting' || selectedStatus === 'future') {
         filters.status = 'waiting';
       } else {
@@ -287,7 +305,7 @@ export function Students() {
         filters.class_id = selectedClassId;
       }
 
-      const res = await api.getAll(
+      const res = await api.getAll<StudentWithRelations>(
         'students',
         { page: 1, pageSize: 10000, sortBy: 'full_name', sortOrder: 'asc' },
         {
@@ -297,8 +315,8 @@ export function Students() {
         '*, classes(name), guardians(*)'
       );
 
-      const rawData = res.data?.data || [];
-      const filteredData = rawData.filter((student: any) => {
+      const rawData: StudentWithRelations[] = res.data?.data ?? [];
+      const filteredData = rawData.filter((student) => {
         if (selectedStatus === 'waiting') {
           if (!student.date_of_birth) return true;
           const birthYear = new Date(student.date_of_birth).getFullYear();
@@ -312,10 +330,10 @@ export function Students() {
         return true;
       });
 
-      const exportData = filteredData.map((row: any) => {
-        const father = row.guardians?.find((g: any) => g.relationship === 'cha');
-        const mother = row.guardians?.find((g: any) => g.relationship === 'me');
-        const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+      const exportData = filteredData.map((row) => {
+        const father = row.guardians?.find((g) => g.relationship === 'cha');
+        const mother = row.guardians?.find((g) => g.relationship === 'me');
+        const primaryGuardian = row.guardians?.find((g) => g.is_primary) || row.guardians?.[0];
 
         let statusText = 'Đang học';
         if (row.status === 'registered') statusText = 'Đã ghi danh, chưa nhập học';
@@ -374,13 +392,14 @@ export function Students() {
 
       exportToExcel(exportData, columns, 'Danh_Sach_Hoc_Sinh', 'Học sinh');
       toast.success("Đã xuất Excel danh sách học sinh!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error("Có lỗi xảy ra khi xuất Excel: " + err.message);
+      const message = err instanceof Error ? err.message : "Lỗi hệ thống";
+      toast.error("Có lỗi xảy ra khi xuất Excel: " + message);
     }
   };
 
-  const handleImportExcel = async (rows: any[]) => {
+  const handleImportExcel = async (rows: ExcelStudentRow[]) => {
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
@@ -415,7 +434,7 @@ export function Students() {
       // Tìm kiếm lớp tương ứng
       let classId = null;
       if (className) {
-        const foundClass = classesList.find((c: any) => c.name.toLowerCase().trim() === className.toLowerCase().trim());
+        const foundClass = classesList.find((c) => c.name.toLowerCase().trim() === String(className).toLowerCase().trim());
         if (foundClass) {
           classId = foundClass.id;
         }
@@ -471,7 +490,7 @@ export function Students() {
         if (studentRes.error) throw new Error(studentRes.error);
 
         // 2. Tạo phụ huynh
-        const guardiansPayload: any[] = [];
+        const guardiansPayload: GuardianInsert[] = [];
         
         if (motherName && motherPhone) {
           guardiansPayload.push({
@@ -509,10 +528,11 @@ export function Students() {
         }
 
         successCount++;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
         errorCount++;
-        errors.push(`Dòng ${lineNum} (${fullName}): ${err.message || 'Lỗi hệ thống'}`);
+        const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
+        errors.push(`Dòng ${lineNum} (${fullName}): ${message}`);
       }
     }
 
@@ -553,14 +573,14 @@ export function Students() {
   };
 
   // Define Dynamic Table Columns based on active tab
-  const getTableColumns = (): TableColumn<any>[] => {
-    const columns: TableColumn<any>[] = [
+  const getTableColumns = (): TableColumn<StudentWithRelations>[] => {
+    const columns: TableColumn<StudentWithRelations>[] = [
       {
         key: "stt",
         header: "STT",
         width: "60px",
         align: "center",
-        render: (_row: any, index: number) => (
+        render: (_row: StudentWithRelations, index: number) => (
           <span className="text-on-surface-variant font-semibold text-[13px]">
             {index + 1}
           </span>
@@ -570,7 +590,7 @@ export function Students() {
         key: "full_name",
         header: "Học sinh",
         sortable: true,
-        render: (row: any) => (
+        render: (row: StudentWithRelations) => (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-[14px] font-bold text-primary border border-primary/20 shrink-0">
               {row.profile_image_url ? (
@@ -598,7 +618,7 @@ export function Students() {
           key: "classes",
           header: "Lớp",
           sortable: true,
-          render: (row: any) => (
+          render: (row: StudentWithRelations) => (
             <span className={row.classes?.name ? "font-semibold text-on-surface" : "text-on-surface-variant font-medium italic"}>
               {row.classes?.name || "Chưa xếp lớp"}
             </span>
@@ -607,10 +627,10 @@ export function Students() {
         {
           key: "parent",
           header: "Phụ huynh chính",
-          render: (row: any) => {
-            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
-            const parentName = primaryGuardian 
-              ? `${primaryGuardian.full_name} (${primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'PH'})` 
+          render: (row: StudentWithRelations) => {
+            const primaryGuardian = row.guardians?.find((g) => g.is_primary) || row.guardians?.[0];
+            const parentName = primaryGuardian
+              ? `${primaryGuardian.full_name} (${primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'PH'})`
               : '—';
             const parentPhone = primaryGuardian ? primaryGuardian.phone : '—';
             return (
@@ -626,8 +646,8 @@ export function Students() {
         {
           key: "address",
           header: "Địa chỉ",
-          render: (row: any) => (
-            <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[220px]" title={row.address}>
+          render: (row: StudentWithRelations) => (
+            <span className="text-on-surface-variant font-medium text-[13px] line-clamp-1 max-w-[220px]" title={row.address || undefined}>
               {row.address || "—"}
             </span>
           )
@@ -638,19 +658,19 @@ export function Students() {
         {
           key: "date_of_birth",
           header: "Ngày sinh",
-          render: (row: any) => (
+          render: (row: StudentWithRelations) => (
             <span className="text-on-surface font-semibold text-[13px]">
               {row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString('vi-VN') : '—'}
             </span>
           )
         },
         {
-          key: "parent_name" as any,
+          key: "parent_name" as keyof StudentWithRelations,
           header: "Bố / Mẹ",
-          render: (row: any) => {
-            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+          render: (row: StudentWithRelations) => {
+            const primaryGuardian = row.guardians?.find((g) => g.is_primary) || row.guardians?.[0];
             const name = primaryGuardian ? primaryGuardian.full_name : '—';
-            const relation = primaryGuardian 
+            const relation = primaryGuardian
               ? (primaryGuardian.relationship === 'me' ? 'Mẹ' : primaryGuardian.relationship === 'cha' ? 'Bố' : 'Người giám hộ')
               : '—';
             return (
@@ -662,10 +682,10 @@ export function Students() {
           }
         },
         {
-          key: "parent_citizen_id" as any,
+          key: "parent_citizen_id" as keyof StudentWithRelations,
           header: "CCCD Bố/Mẹ",
-          render: (row: any) => {
-            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+          render: (row: StudentWithRelations) => {
+            const primaryGuardian = row.guardians?.find((g) => g.is_primary) || row.guardians?.[0];
             return (
               <span className="text-on-surface-variant font-medium text-[13px] font-mono">
                 {primaryGuardian?.citizen_id || '—'}
@@ -674,10 +694,10 @@ export function Students() {
           }
         },
         {
-          key: "parent_phone" as any,
+          key: "parent_phone" as keyof StudentWithRelations,
           header: "SĐT (Zalo)",
-          render: (row: any) => {
-            const primaryGuardian = row.guardians?.find((g: any) => g.is_primary) || row.guardians?.[0];
+          render: (row: StudentWithRelations) => {
+            const primaryGuardian = row.guardians?.find((g) => g.is_primary) || row.guardians?.[0];
             return primaryGuardian?.phone ? (
               <a href={`tel:${primaryGuardian.phone}`} className="text-primary hover:underline font-semibold text-[13px] flex items-center gap-1">
                 <Phone className="w-3 h-3 text-primary" /> {primaryGuardian.phone}
@@ -686,18 +706,18 @@ export function Students() {
           }
         },
         {
-          key: "registration_date" as any,
+          key: "registration_date" as keyof StudentWithRelations,
           header: "Ngày đăng ký",
-          render: (row: any) => (
+          render: (row: StudentWithRelations) => (
             <span className="text-on-surface-variant font-medium text-[13px]">
               {row.registration_date ? new Date(row.registration_date).toLocaleDateString('vi-VN') : '—'}
             </span>
           )
         },
         {
-          key: "priority_status" as any,
+          key: "priority_status" as keyof StudentWithRelations,
           header: "Đối tượng ưu tiên",
-          render: (row: any) => {
+          render: (row: StudentWithRelations) => {
             const getPriorityLabel = (val: string) => {
               if (!val) return 'Không';
               switch (val) {

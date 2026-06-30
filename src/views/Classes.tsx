@@ -21,6 +21,13 @@ import { ConfirmDialog, Table, type TableColumn, useSlidePanel, ErrorState } fro
 import { ClassForm } from "../components/forms/ClassForm";
 import { ClassDetailPanel } from "../components/details/ClassDetailPanel";
 import { useAppStore } from "../stores/appStore";
+import type { ClassRow, AcademicYearRow, UserRow, ClassTeacherRow } from "../types";
+
+/** ClassRow extended with joined relations from the API select query */
+interface ClassWithRelations extends ClassRow {
+  class_teachers?: (Pick<ClassTeacherRow, 'teacher_id' | 'is_homeroom'> & { users?: Pick<UserRow, 'full_name'> })[];
+  students?: { id: string }[];
+}
 
 export function Classes() {
   const queryClient = useQueryClient();
@@ -33,7 +40,7 @@ export function Classes() {
   // Quick delete class state (confirm dialog at list level)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<any | null>(null);
+  const [selectedClass, setSelectedClass] = useState<ClassWithRelations | null>(null);
 
   // Search state
   const [search, setSearch] = useState("");
@@ -41,14 +48,14 @@ export function Classes() {
   // 1. Fetch academic years list
   const { data: yearsResponse } = useQuery({
     queryKey: ['academic-years-list'],
-    queryFn: () => api.getAll<any>('academic_years', { page: 1, pageSize: 100 })
+    queryFn: () => api.getAll<AcademicYearRow>('academic_years', { page: 1, pageSize: 100 })
   });
-  const currentYearName = (yearsResponse?.data?.data as any[])?.find(y => y.id === selectedAcademicYearId)?.name || 'Năm học hiện tại';
+  const currentYearName = yearsResponse?.data?.data?.find(y => y.id === selectedAcademicYearId)?.name || 'Năm học hiện tại';
 
   // 2. Fetch all teachers (needed for ClassForm)
   const { data: teachersResponse } = useQuery({
     queryKey: ['teachers-only-list'],
-    queryFn: () => api.getAll<any>('users', { page: 1, pageSize: 100 }, { filters: { role: 'teacher', is_active: true } })
+    queryFn: () => api.getAll<UserRow>('users', { page: 1, pageSize: 100 }, { filters: { role: 'teacher', is_active: true } })
   });
   const teachersList = teachersResponse?.data?.data || [];
 
@@ -59,7 +66,7 @@ export function Classes() {
       if (!selectedAcademicYearId) {
         return { data: { data: [], count: 0 }, error: null, count: 0 };
       }
-      return api.getAll<any>(
+      return api.getAll<ClassWithRelations>(
         'classes',
         { page: 1, pageSize: 100, sortBy: 'name', sortOrder: 'asc' },
         { filters: { academic_year_id: selectedAcademicYearId } },
@@ -88,8 +95,8 @@ export function Classes() {
       toast.success('Xóa lớp học thành công!');
       queryClient.invalidateQueries({ queryKey: ['classes-list'] });
       setIsDeleteDialogOpen(false);
-    } catch (err: any) {
-      toast.error('Lỗi khi xóa lớp học', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi khi xóa lớp học', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setIsDeleting(false);
       setSelectedClass(null);
@@ -129,7 +136,7 @@ export function Classes() {
     });
   };
 
-  const handleEditClass = (c: any) => {
+  const handleEditClass = (c: ClassWithRelations) => {
     openPanel({
       title: 'Chỉnh sửa lớp học',
       icon: <Edit2 size={14} />,
@@ -160,12 +167,12 @@ export function Classes() {
   };
 
   // Table columns definition
-  const tableColumns: TableColumn<any>[] = [
+  const tableColumns: TableColumn<ClassWithRelations>[] = [
     {
       key: "name",
       header: "Tên lớp học",
       sortable: true,
-      render: (row: any) => (
+      render: (row: ClassWithRelations) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center shrink-0">
             <BookOpen className="w-4 h-4 text-primary" />
@@ -177,27 +184,27 @@ export function Classes() {
     {
       key: "grade_level",
       header: "Khối lớp",
-      render: (row: any) => getGradeBadge(row.grade_level)
+      render: (row: ClassWithRelations) => getGradeBadge(row.grade_level)
     },
     {
       key: "room_number",
       header: "Phòng học",
-      render: (row: any) => row.room_number || <span className="text-on-surface-variant/40">—</span>
+      render: (row: ClassWithRelations) => row.room_number || <span className="text-on-surface-variant/40">—</span>
     },
     {
       key: "capacity",
       header: "Sĩ số",
-      render: (row: any) => (
+      render: (row: ClassWithRelations) => (
         <span className="font-semibold text-on-surface">
           {(row.students?.length || 0)} / {row.capacity} trẻ
         </span>
       )
     },
     {
-      key: "homeroom_teacher",
+      key: "homeroom_teacher" as keyof ClassWithRelations & string,
       header: "Giáo viên chủ nhiệm",
-      render: (row: any) => {
-        const homeroom = row.class_teachers?.find((ct: any) => ct.is_homeroom)?.users?.full_name;
+      render: (row: ClassWithRelations) => {
+        const homeroom = row.class_teachers?.find(ct => ct.is_homeroom)?.users?.full_name;
         return homeroom ? (
           <span className="font-semibold text-primary flex items-center gap-1">
             <UserCheck className="w-3.5 h-3.5" /> {homeroom}
@@ -206,9 +213,9 @@ export function Classes() {
       }
     },
     {
-      key: "actions" as any,
+      key: "actions" as keyof ClassWithRelations & string,
       header: "Thao tác",
-      render: (row: any) => (
+      render: (row: ClassWithRelations) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => handleOpenDetail(row.id)}
@@ -328,7 +335,7 @@ export function Classes() {
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredClasses.map((c) => {
-                  const homeroom = c.class_teachers?.find((ct: any) => ct.is_homeroom)?.users?.full_name || "Chưa phân công";
+                  const homeroom = c.class_teachers?.find(ct => ct.is_homeroom)?.users?.full_name || "Chưa phân công";
                   const teacherCount = c.class_teachers?.length || 0;
                   const studentCount = c.students?.length || 0;
                   

@@ -27,6 +27,11 @@ import { toast } from '../../stores/toastStore';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../stores/authStore';
+import type { StudentRow, ClassRow, AttendanceRow, AttendanceStatus } from '../../types/database';
+
+interface ClassWithTeachers extends ClassRow {
+  class_teachers?: { teacher_id: string; is_homeroom: boolean; users?: { full_name: string } }[];
+}
 
 const DAILY_SCHEDULES: Record<string, { time: string; activity: string; type: 'study' | 'eat' | 'sleep' | 'other' }[]> = {
   nha_tre: [
@@ -73,8 +78,8 @@ const DAILY_SCHEDULES: Record<string, { time: string; activity: string; type: 's
 
 interface ClassDetailPanelProps {
   classId: string;
-  teachersList: any[];
-  classesList: any[];
+  teachersList: { id: string; full_name: string }[];
+  classesList: { id: string; name: string; grade_level: string }[];
   onDeleteSuccess?: () => void;
 }
 
@@ -99,7 +104,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
   // Student transfer states
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isBulkTransferOpen, setIsBulkTransferOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [targetClassId, setTargetClassId] = useState<string>("");
   const [isTransferring, setIsTransferring] = useState(false);
 
@@ -107,7 +112,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
   const [rollCallDate, setRollCallDate] = useState<Date>(new Date());
   const [rollCallViewMode, setRollCallViewMode] = useState<'grid' | 'table'>('grid');
   const [isRollCallNoteModalOpen, setIsRollCallNoteModalOpen] = useState(false);
-  const [selectedStudentForRollCallNote, setSelectedStudentForRollCallNote] = useState<any>(null);
+  const [selectedStudentForRollCallNote, setSelectedStudentForRollCallNote] = useState<StudentRow | null>(null);
   const [rollCallTempNote, setRollCallTempNote] = useState("");
 
   // 1. Fetch Class detail
@@ -115,7 +120,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
     queryKey: ['class-detail', classId],
     queryFn: () => api.getById('classes', classId, '*, class_teachers(id, teacher_id, is_homeroom, users(full_name))')
   });
-  const activeClass = classResponse?.data as any;
+  const activeClass = classResponse?.data as ClassWithTeachers | undefined;
 
   // 2. Fetch students in class
   const { data: studentsResponse, isLoading: isLoadingStudents, refetch: refetchStudents } = useQuery({
@@ -135,8 +140,8 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
   const rollCallRecords = rollCallAttendanceResponse?.data?.data || [];
 
   // Build roll call records map
-  const rollCallMap = new Map<string, any>();
-  rollCallRecords.forEach((record: any) => {
+  const rollCallMap = new Map<string, AttendanceRow>();
+  rollCallRecords.forEach((record: AttendanceRow) => {
     rollCallMap.set(record.student_id, record);
   });
 
@@ -155,7 +160,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
     ),
     enabled: !!classId && activeTab === 'attendance',
   });
-  const attendanceRecords = (attendanceResponse?.data?.data || []) as any[];
+  const attendanceRecords = (attendanceResponse?.data?.data || []) as AttendanceRow[];
 
   // Invalidate when tab changes
   useEffect(() => {
@@ -171,7 +176,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
       checkInTime?: string | null;
       recordId?: string | null;
     }) => {
-      const payload: any = {
+      const payload = {
         student_id: studentId,
         class_id: classId,
         date: formattedRollCallDate,
@@ -196,16 +201,16 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
         queryClient.invalidateQueries({ queryKey: ['class-attendance-stats', classId] });
       }
     },
-    onError: (error: any) => {
-      toast.error('Lỗi khi lưu điểm danh', error.message || 'Lỗi hệ thống');
+    onError: (error) => {
+      toast.error('Lỗi khi lưu điểm danh', error instanceof Error ? error.message : 'Lỗi hệ thống');
     }
   });
 
   const bulkRollCallMutation = useMutation({
     mutationFn: async (status: 'present' | 'absent') => {
-      const promises = students.map((student: any) => {
+      const promises = students.map((student: StudentRow) => {
         const existingRecord = rollCallMap.get(student.id);
-        const payload: any = {
+        const payload = {
           student_id: student.id,
           class_id: classId,
           date: formattedRollCallDate,
@@ -228,8 +233,8 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
       queryClient.invalidateQueries({ queryKey: ['attendance-records', classId, formattedRollCallDate] });
       queryClient.invalidateQueries({ queryKey: ['class-attendance-stats', classId] });
     },
-    onError: (error: any) => {
-      toast.error('Lỗi khi điểm danh hàng loạt', error.message || 'Lỗi hệ thống');
+    onError: (error) => {
+      toast.error('Lỗi khi điểm danh hàng loạt', error instanceof Error ? error.message : 'Lỗi hệ thống');
     }
   });
 
@@ -295,16 +300,16 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
       setIsDeleteDialogOpen(false);
       closePanel();
       if (onDeleteSuccess) onDeleteSuccess();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error('Lỗi khi xóa lớp học', err.message || 'Lỗi hệ thống');
+      toast.error('Lỗi khi xóa lớp học', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setIsDeleting(false);
     }
   };
 
   // Student transfer handlers
-  const handleTransferClick = (student: any) => {
+  const handleTransferClick = (student: StudentRow) => {
     setSelectedStudent(student);
     setTargetClassId("");
     setIsTransferOpen(true);
@@ -325,8 +330,8 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
       queryClient.invalidateQueries({ queryKey: ['students-in-class', classId] });
       queryClient.invalidateQueries({ queryKey: ['classes-list'] });
       setIsTransferOpen(false);
-    } catch (err: any) {
-      toast.error('Lỗi khi chuyển lớp học', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi khi chuyển lớp học', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setIsTransferring(false);
     }
@@ -350,8 +355,8 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
       queryClient.invalidateQueries({ queryKey: ['students-in-class', classId] });
       queryClient.invalidateQueries({ queryKey: ['classes-list'] });
       setIsBulkTransferOpen(false);
-    } catch (err: any) {
-      toast.error('Lỗi khi chuyển lớp hàng loạt', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi khi chuyển lớp hàng loạt', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setIsTransferring(false);
     }
@@ -415,7 +420,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
   let rcSickCount = 0;
   let rcExcusedCount = 0;
 
-  students.forEach((s: any) => {
+  students.forEach((s: StudentRow) => {
     const rec = rollCallMap.get(s.id);
     if (rec) {
       if (rec.status === 'present') rcPresentCount++;
@@ -479,7 +484,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
       <div className="px-6 py-3 bg-slate-50 border-b border-outline-variant/20 flex flex-col gap-2 shrink-0">
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface-variant/80">Giáo viên phụ trách lớp</span>
         <div className="flex flex-wrap gap-2">
-          {activeClass.class_teachers?.map((ct: any) => (
+          {activeClass.class_teachers?.map((ct: { teacher_id: string; is_homeroom: boolean; users?: { full_name: string } }) => (
             <div key={ct.teacher_id} className="flex items-center gap-1.5 bg-white border border-outline-variant/30 px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface shadow-2xs">
               <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
               {ct.users?.full_name}
@@ -506,7 +511,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as 'students' | 'rollcall' | 'schedule' | 'attendance')}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-3 text-[13px] font-bold border-b-2 transition-colors cursor-pointer",
               activeTab === tab.id 
@@ -566,7 +571,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
                           checked={students.length > 0 && selectedStudentIds.size === students.length}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedStudentIds(new Set(students.map((s: any) => s.id)));
+                              setSelectedStudentIds(new Set(students.map((s: StudentRow) => s.id)));
                             } else {
                               setSelectedStudentIds(new Set());
                             }
@@ -582,7 +587,7 @@ export const ClassDetailPanel: React.FC<ClassDetailPanelProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/20 font-medium text-[13.5px]">
-                    {students.map((student: any) => {
+                    {students.map((student: StudentRow) => {
                       const isChecked = selectedStudentIds.has(student.id);
                       return (
                         <tr key={student.id} className="hover:bg-surface-container-lowest/50 transition-all">

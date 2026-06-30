@@ -20,12 +20,12 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { 
-  Table, 
-  type TableColumn, 
-  ConfirmDialog, 
+import {
+  Table,
+  type TableColumn,
+  ConfirmDialog,
   useSlidePanel,
-  ExcelImportModal 
+  ExcelImportModal
 } from "../components/ui";
 import { TeacherForm } from "../components/forms/TeacherForm";
 import { TeacherDetailPanel } from "../components/details/TeacherDetailPanel";
@@ -33,6 +33,53 @@ import { toast } from "../stores/toastStore";
 import { exportToExcel, parseExcelDate } from "../lib/excelHelper";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
+import type { UserRole } from "../types";
+
+/**
+ * Extended user row that includes columns added by later migrations
+ * (date_of_birth, address) and the joined class_teachers relation.
+ */
+interface TeacherRow {
+  id: string;
+  school_id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  phone: string | null;
+  avatar_url: string | null;
+  job_title: string | null;
+  is_active: boolean;
+  work_status: 'active' | 'maternity_leave' | 'inactive' | 'on_leave';
+  date_of_birth: string | null;
+  address: string | null;
+  created_at: string;
+  updated_at: string;
+  class_teachers?: { class_id: string; classes: { name: string } | null }[];
+}
+
+/** Minimal class info used by the class filter dropdown. */
+interface ClassListItem {
+  id: string;
+  name: string;
+}
+
+/** Shape of a single row from an imported Excel file. */
+interface ExcelTeacherRow {
+  [key: string]: string | number | null | undefined;
+  'Họ tên'?: string;
+  'Email'?: string;
+  'Số điện thoại'?: string | number;
+  'SĐT'?: string | number;
+  'Vai trò'?: string;
+  'Chức vụ'?: string;
+  'Chức danh'?: string;
+  'Ngày sinh'?: string | number;
+  'Địa chỉ'?: string;
+  'Trạng thái hoạt động'?: string;
+  'Trạng thái'?: string;
+  'Lớp'?: string;
+  'Lớp phụ trách'?: string;
+}
 
 // Helper function to compare Vietnamese names alphabetically by first name
 const compareVietnameseNames = (nameA: string, nameB: string) => {
@@ -73,7 +120,7 @@ export function Teachers() {
   // Delete state for quick delete from list
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherRow | null>(null);
 
   // Search & Filter state
   const [search, setSearch] = useState("");
@@ -107,32 +154,32 @@ export function Teachers() {
   const { data: classesResponse } = useQuery({
     queryKey: ['classes-list', selectedAcademicYearId],
     queryFn: () => {
-      const filters: Record<string, any> = { is_active: true };
+      const filters: Record<string, string | number | boolean | null> = { is_active: true };
       if (selectedAcademicYearId) {
         filters.academic_year_id = selectedAcademicYearId;
       }
-      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+      return api.getAll<ClassListItem>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
     }
   });
-  const classesList = classesResponse?.data?.data || [];
+  const classesList: ClassListItem[] = classesResponse?.data?.data || [];
 
   // 2. Fetch users list (teachers and staff) based on search and filters
   const { data: teachersResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['teachers-list', debouncedSearch, selectedRole, selectedClassId, selectedStatus, page],
     queryFn: async () => {
-      const filters: Record<string, any> = {};
-      
+      const filters: Record<string, string | number | boolean | null> = {};
+
       // Filter by work status
       filters.work_status = selectedStatus;
-      
+
       // Filter by specific class if selected
       if (selectedClassId !== "all") {
-        const { data: ctData } = await api.getAll(
-          'class_teachers', 
-          { page: 1, pageSize: 1000 }, 
+        const { data: ctData } = await api.getAll<{ teacher_id: string }>(
+          'class_teachers',
+          { page: 1, pageSize: 1000 },
           { filters: { class_id: selectedClassId } }
         );
-        const teacherIds = ctData?.data?.map((ct: any) => ct.teacher_id) || [];
+        const teacherIds = (ctData?.data?.map((ct) => ct.teacher_id)) || [];
         
         if (teacherIds.length > 0) {
           filters.id = `in.(${teacherIds.join(',')})`;
@@ -142,7 +189,7 @@ export function Teachers() {
       }
 
       // Query the users table with their class assignments
-      return api.getAll(
+      return api.getAll<TeacherRow>(
         'users',
         { page, pageSize, sortBy: 'full_name', sortOrder: 'asc' },
         {
@@ -154,10 +201,10 @@ export function Teachers() {
     }
   });
 
-  const rawTeachersData = teachersResponse?.data?.data || [];
+  const rawTeachersData: TeacherRow[] = teachersResponse?.data?.data || [];
 
 
-  const classifyUser = (user: any) => {
+  const classifyUser = (user: TeacherRow) => {
     const role = user.role || '';
     const title = (user.job_title || getTeacherTitle(user.email, user.role, user.job_title) || '').toLowerCase().trim();
     const name = (user.full_name || '').trim();
@@ -201,8 +248,8 @@ export function Teachers() {
     return 4;
   };
 
-  const compareGroup1 = (a: any, b: any) => {
-    const getSubRank = (user: any) => {
+  const compareGroup1 = (a: TeacherRow, b: TeacherRow) => {
+    const getSubRank = (user: TeacherRow) => {
       const title = (user.job_title || getTeacherTitle(user.email, user.role, user.job_title) || '').toLowerCase().trim();
       const name = (user.full_name || '').trim();
 
@@ -231,7 +278,7 @@ export function Teachers() {
   };
 
   // Client-side category filtering
-  const filteredTeachersData = [...rawTeachersData].filter((user: any) => {
+  const filteredTeachersData = [...rawTeachersData].filter((user: TeacherRow) => {
     if (selectedRole === 'all') return true;
     const group = classifyUser(user);
     if (selectedRole === 'bgh' && (group === 1 || group === 5)) return true;
@@ -242,7 +289,7 @@ export function Teachers() {
   });
 
   // Sort: Group 1 -> Group 2 -> Group 3 -> Group 4 -> Group 5
-  const teachersData = filteredTeachersData.sort((a: any, b: any) => {
+  const teachersData = filteredTeachersData.sort((a: TeacherRow, b: TeacherRow) => {
     const groupA = classifyUser(a);
     const groupB = classifyUser(b);
 
@@ -259,7 +306,7 @@ export function Teachers() {
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   // Helper to map role to display text & styles
-  const getRoleBadge = (row: any) => {
+  const getRoleBadge = (row: TeacherRow) => {
     const title = row.job_title || getTeacherTitle(row.email, row.role, row.job_title);
     switch (row.role) {
       case 'admin':
@@ -327,9 +374,9 @@ export function Teachers() {
       toast.success('Xóa nhân sự thành công!');
       queryClient.invalidateQueries({ queryKey: ['teachers-list'] });
       setIsDeleteDialogOpen(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error('Lỗi khi xóa nhân sự', err.message || 'Lỗi hệ thống');
+      toast.error('Lỗi khi xóa nhân sự', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setIsDeleting(false);
       setSelectedTeacher(null);
@@ -338,18 +385,18 @@ export function Teachers() {
 
   const handleExportExcel = async () => {
     try {
-      const filters: Record<string, any> = {};
+      const filters: Record<string, string | number | boolean | null> = {};
       filters.work_status = selectedStatus;
       if (selectedRole !== "all") {
         filters.role = selectedRole;
       }
       if (selectedClassId !== "all") {
-        const { data: ctData } = await api.getAll(
-          'class_teachers', 
-          { page: 1, pageSize: 1000 }, 
+        const { data: ctData } = await api.getAll<{ teacher_id: string }>(
+          'class_teachers',
+          { page: 1, pageSize: 1000 },
           { filters: { class_id: selectedClassId } }
         );
-        const teacherIds = ctData?.data?.map((ct: any) => ct.teacher_id) || [];
+        const teacherIds = (ctData?.data?.map((ct) => ct.teacher_id)) || [];
         
         if (teacherIds.length > 0) {
           filters.id = `in.(${teacherIds.join(',')})`;
@@ -359,7 +406,7 @@ export function Teachers() {
         }
       }
 
-      const res = await api.getAll(
+      const res = await api.getAll<TeacherRow>(
         'users',
         { page: 1, pageSize: 1000, sortBy: 'full_name', sortOrder: 'asc' },
         {
@@ -369,8 +416,8 @@ export function Teachers() {
         '*, class_teachers(classes(name))'
       );
 
-      const exportData = (res.data?.data || []).map((row: any) => {
-        const classes = row.class_teachers?.map((ct: any) => ct.classes?.name).filter(Boolean).join(', ') || 'Chưa phân công';
+      const exportData = (res.data?.data || []).map((row: TeacherRow) => {
+        const classes = row.class_teachers?.map((ct) => ct.classes?.name).filter(Boolean).join(', ') || 'Chưa phân công';
         let roleName = 'Nhân viên';
         if (row.role === 'admin') roleName = 'Ban giám hiệu';
         else if (row.role === 'teacher') roleName = 'Giáo viên';
@@ -405,13 +452,13 @@ export function Teachers() {
 
       exportToExcel(exportData, columns, 'Danh_Sach_Giao_Vien_Nhan_Vien', 'Cán bộ giáo viên');
       toast.success("Đã xuất Excel danh sách giáo viên!");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error("Có lỗi xảy ra khi xuất Excel: " + err.message);
+      toast.error("Có lỗi xảy ra khi xuất Excel: " + (err instanceof Error ? err.message : 'Lỗi hệ thống'));
     }
   };
 
-  const handleImportExcel = async (rows: any[]) => {
+  const handleImportExcel = async (rows: ExcelTeacherRow[]) => {
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
@@ -498,7 +545,7 @@ export function Teachers() {
         const rawClass = row['Lớp'] || row['Lớp phụ trách'];
         if (role === 'teacher' && rawClass && classesList.length > 0) {
           const cleanClassName = String(rawClass).toLowerCase().replace(/\s+/g, '');
-          const matchedClass = classesList.find((c: any) => 
+          const matchedClass = classesList.find((c) =>
             c.name.toLowerCase().replace(/\s+/g, '') === cleanClassName
           );
           
@@ -514,10 +561,10 @@ export function Teachers() {
         }
 
         successCount++;
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
         errorCount++;
-        errors.push(`Dòng ${lineNum} (${fullName}): ${err.message || 'Lỗi hệ thống'}`);
+        errors.push(`Dòng ${lineNum} (${fullName}): ${err instanceof Error ? err.message : 'Lỗi hệ thống'}`);
       }
     }
 

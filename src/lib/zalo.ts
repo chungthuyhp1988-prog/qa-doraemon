@@ -1,96 +1,68 @@
-import { api } from './api';
+import { supabase } from './supabase';
 
-/**
- * Zalo OA API integration helper.
- * 
- * Fetches Zalo OA ID and Access Token settings dynamically from the `schools` table.
- * In production, it routes requests through a secure backend proxy or Supabase Edge Function
- * to prevent exposing keys on the frontend and bypass CORS policy.
- */
-async function getZaloConfig() {
-  // TODO: SECURITY — In production, replace this with a Supabase Edge Function proxy.
-  // Currently fetches Zalo access token client-side which exposes it to the browser.
+const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zalo-send`;
+
+async function callZaloFunction(
+  body: Record<string, unknown>,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await api.getAll<any>('schools', { page: 1, pageSize: 1 });
-    const school = res.data?.data?.[0];
-    if (school?.zalo_oa_id && school?.zalo_access_token) {
-      return {
-        oaId: school.zalo_oa_id,
-        accessToken: school.zalo_access_token,
-        templateFee: school.zalo_template_fee,
-        templateAttendance: school.zalo_template_attendance
-      };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { success: false, error: 'Chưa đăng nhập' };
+
+    const res = await fetch(FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || `HTTP ${res.status}` };
     }
+    return { success: true };
   } catch (err) {
-    console.error('[Zalo Config] Failed to fetch config from DB:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Lỗi kết nối Zalo',
+    };
   }
-  return null;
 }
 
 export const zalo = {
-  /**
-   * Send a tuition fee reminder to the primary guardian.
-   */
-  sendFeeReminder: async (
+  sendFeeReminder: (
     phone: string,
     studentName: string,
     amount: number,
-    month: number
-  ): Promise<{ success: boolean; error?: string }> => {
-    const config = await getZaloConfig();
-    
-    if (config) {
-      console.log(`[Zalo ZNS Real] Sending using Config (OA ID: ${config.oaId}, Template ID: ${config.templateFee || 'Chưa thiết lập'}) to ${phone}. Student: ${studentName}, Amount: ${amount.toLocaleString()} VNĐ, Month: ${month}`);
-      
-      // Real API proxy implementation example:
-      // const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zalo-zns`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ phone, template_id: config.templateFee, name: studentName, amount, month, token: config.accessToken })
-      // });
-      // return response.json();
-    } else {
-      console.log(`[Zalo OA Mock] Sending fee reminder to ${phone} for student ${studentName}: ${amount} VNĐ, Month ${month}`);
-    }
-    
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    return { success: true };
-  },
+    month: number,
+  ) =>
+    callZaloFunction({
+      type: 'fee_reminder',
+      phone,
+      student_name: studentName,
+      amount,
+      month,
+    }),
 
-  /**
-   * Send a general notification to a parent's phone.
-   */
-  sendNotification: async (
-    phone: string,
-    title: string,
-    content: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    const config = await getZaloConfig();
-    if (config) {
-      console.log(`[Zalo ZNS Real] Sending Notification via OA: ${config.oaId} to phone ${phone}. Title: ${title}`);
-    } else {
-      console.log(`[Zalo OA Mock] Sending notification to ${phone}. Title: ${title}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    return { success: true };
-  },
+  sendNotification: (phone: string, title: string, content: string) =>
+    callZaloFunction({
+      type: 'notification',
+      phone,
+      title,
+      content,
+    }),
 
-  /**
-   * Send an attendance notification to a parent's phone.
-   */
-  sendAttendanceAlert: async (
+  sendAttendanceAlert: (
     phone: string,
     studentName: string,
-    status: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    const config = await getZaloConfig();
-    if (config) {
-      console.log(`[Zalo ZNS Real] Sending Attendance via OA: ${config.oaId}, Template ID: ${config.templateAttendance || 'Chưa thiết lập'} to phone ${phone}. Student: ${studentName}, Status: ${status}`);
-    } else {
-      console.log(`[Zalo OA Mock] Sending attendance alert to parent of ${studentName}: Status: ${status}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return { success: true };
-  }
+    status: string,
+  ) =>
+    callZaloFunction({
+      type: 'attendance',
+      phone,
+      student_name: studentName,
+      status,
+    }),
 };

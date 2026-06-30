@@ -22,6 +22,12 @@ import { NotificationForm } from "../components/forms/NotificationForm";
 import { NotificationDetailPanel } from "../components/details/NotificationDetailPanel";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
+import type { NotificationRow, ClassRow } from "../types";
+
+/** Notification row with joined user info from the `created_by` foreign key. */
+interface NotificationWithUser extends NotificationRow {
+  users?: { full_name: string; role: string } | null;
+}
 
 export function Notifications() {
   const queryClient = useQueryClient();
@@ -32,7 +38,7 @@ export function Notifications() {
   // Modal / Form States
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationWithUser | null>(null);
 
   // Filter States
   const [search, setSearch] = useState("");
@@ -45,11 +51,11 @@ export function Notifications() {
   const { data: classesResponse } = useQuery({
     queryKey: ['classes-list-notif', selectedAcademicYearId],
     queryFn: () => {
-      const filters: Record<string, any> = { is_active: true };
+      const filters: Record<string, string | number | boolean | null> = { is_active: true };
       if (selectedAcademicYearId) {
         filters.academic_year_id = selectedAcademicYearId;
       }
-      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
+      return api.getAll<ClassRow>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
     }
   });
   const classesList = classesResponse?.data?.data || [];
@@ -58,17 +64,17 @@ export function Notifications() {
   const { data: notificationsResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['notifications-list', selectedType, selectedStatus, search],
     queryFn: () => {
-      const filters: Record<string, any> = {};
-      
+      const filters: Record<string, string | number | boolean | null> = {};
+
       if (selectedType !== "all") {
         filters.type = selectedType;
       }
-      
+
       if (selectedStatus !== "all") {
         filters.is_read = selectedStatus === "read";
       }
 
-      return api.getAll<any>(
+      return api.getAll<NotificationWithUser>(
         'notifications',
         { page: 1, pageSize: 100, sortBy: 'sent_at', sortOrder: 'desc' },
         { 
@@ -79,19 +85,19 @@ export function Notifications() {
       );
     }
   });
-  const notifications = (notificationsResponse?.data?.data as any[]) || [];
+  const notifications = (notificationsResponse?.data?.data as NotificationWithUser[]) || [];
 
-  const handleMarkAsRead = async (notif: any) => {
+  const handleMarkAsRead = async (notif: NotificationWithUser) => {
     try {
       const res = await api.update('notifications', notif.id, {
         is_read: true,
         updated_at: new Date().toISOString()
       });
       if (res.error) throw new Error(res.error);
-      
+
       queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
-    } catch (err: any) {
-      toast.error('Lỗi', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi', err instanceof Error ? err.message : 'Lỗi hệ thống');
     }
   };
 

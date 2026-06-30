@@ -23,6 +23,8 @@ export function useForm<TSchema extends z.ZodTypeAny>({
 
   const form = useReactHookForm<z.output<TSchema>>({
     ...formProps,
+    // Zod v4 + react-hook-form resolver type mismatch requires assertion
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
   });
 
@@ -33,9 +35,9 @@ export function useForm<TSchema extends z.ZodTypeAny>({
       if (successMessage) {
         toast.success(successMessage);
       }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(errorMessage, err.message || '');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      toast.error(errorMessage, message);
     } finally {
       setIsSubmitting(false);
     }

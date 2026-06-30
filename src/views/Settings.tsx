@@ -25,6 +25,7 @@ import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
 import { Input, Button, Tabs, Modal, Table, type TableColumn } from "../components/ui";
+import type { SchoolRow, AcademicYearRow } from "../types";
 import { Avatar } from "../components/ui/Avatar";
 
 // Validation Schemas
@@ -87,7 +88,7 @@ export function Settings() {
   const { data: schoolResponse, isLoading: isLoadingSchool } = useQuery({
     queryKey: ['school-details'],
     queryFn: async () => {
-      const res = await api.getAll<any>('schools', { page: 1, pageSize: 1 });
+      const res = await api.getAll<SchoolRow>('schools', { page: 1, pageSize: 1 });
       return res.data?.data?.[0] || null;
     }
   });
@@ -96,9 +97,9 @@ export function Settings() {
   // 2. Fetch Academic Years
   const { data: yearsResponse, isLoading: isLoadingYears } = useQuery({
     queryKey: ['academic-years-settings'],
-    queryFn: () => api.getAll<any>('academic_years', { page: 1, pageSize: 100, sortBy: 'start_date', sortOrder: 'desc' })
+    queryFn: () => api.getAll<AcademicYearRow>('academic_years', { page: 1, pageSize: 100, sortBy: 'start_date', sortOrder: 'desc' })
   });
-  const academicYears = (yearsResponse?.data?.data as any[]) || [];
+  const academicYears = (yearsResponse?.data?.data as AcademicYearRow[]) || [];
 
   // Form hooks
   const {
@@ -178,8 +179,8 @@ export function Settings() {
       
       toast.success('Cập nhật thông tin trường thành công!');
       queryClient.invalidateQueries({ queryKey: ['school-details'] });
-    } catch (err: any) {
-      toast.error('Lỗi lưu thông tin', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi lưu thông tin', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setLoading(false);
     }
@@ -192,11 +193,11 @@ export function Settings() {
         password: values.password
       });
       if (error) throw error;
-      
+
       toast.success('Thay đổi mật khẩu tài khoản thành công!');
       resetPassword({ password: '', confirmPassword: '' });
-    } catch (err: any) {
-      toast.error('Lỗi khi đổi mật khẩu', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi khi đổi mật khẩu', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setLoading(false);
     }
@@ -221,8 +222,8 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['academic-years-settings'] });
       setIsYearModalOpen(false);
       resetYear();
-    } catch (err: any) {
-      toast.error('Lỗi khi tạo năm học', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi khi tạo năm học', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setYearLoading(false);
     }
@@ -240,8 +241,8 @@ export function Settings() {
       
       toast.success('Cập nhật cấu hình Zalo OA thành công!');
       queryClient.invalidateQueries({ queryKey: ['school-details'] });
-    } catch (err: any) {
-      toast.error('Lỗi khi lưu cấu hình', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi khi lưu cấu hình', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setLoading(false);
     }
@@ -263,8 +264,8 @@ export function Settings() {
       });
       
       toast.success('Cập nhật hồ sơ cá nhân thành công!');
-    } catch (err: any) {
-      toast.error('Lỗi cập nhật hồ sơ', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi cập nhật hồ sơ', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setLoading(false);
     }
@@ -295,14 +296,14 @@ export function Settings() {
       });
       
       toast.success('Cập nhật ảnh đại diện thành công!');
-    } catch (err: any) {
-      toast.error('Lỗi tải ảnh', err.message || 'Lỗi hệ thống');
+    } catch (err) {
+      toast.error('Lỗi tải ảnh', err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSetCurrentYear = async (year: any) => {
+  const handleSetCurrentYear = async (year: AcademicYearRow) => {
     try {
       toast.info('Đang chuyển đổi năm học...');
       
@@ -327,7 +328,7 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['academic-years-settings'] });
       queryClient.invalidateQueries({ queryKey: ['classes-list'] });
       queryClient.invalidateQueries({ queryKey: ['classes-summary'] });
-    } catch (err: any) {
+    } catch {
       toast.error('Lỗi', 'Không thể cấu hình năm học mặc định');
     }
   };
@@ -605,7 +606,7 @@ export function Settings() {
                     {
                       key: "name",
                       header: "Tên năm học",
-                      render: (row: any) => (
+                      render: (row: AcademicYearRow) => (
                         <span className="font-bold text-on-surface">
                           Năm học {row.name}
                         </span>
@@ -614,7 +615,7 @@ export function Settings() {
                     {
                       key: "start_date",
                       header: "Ngày bắt đầu",
-                      render: (row: any) => (
+                      render: (row: AcademicYearRow) => (
                         <span className="text-xs text-on-surface-variant">
                           {new Date(row.start_date).toLocaleDateString('vi-VN')}
                         </span>
@@ -623,7 +624,7 @@ export function Settings() {
                     {
                       key: "end_date",
                       header: "Ngày kết thúc",
-                      render: (row: any) => (
+                      render: (row: AcademicYearRow) => (
                         <span className="text-xs text-on-surface-variant">
                           {new Date(row.end_date).toLocaleDateString('vi-VN')}
                         </span>
@@ -632,7 +633,7 @@ export function Settings() {
                     {
                       key: "status",
                       header: "Trạng thái",
-                      render: (row: any) => row.is_current ? (
+                      render: (row: AcademicYearRow) => row.is_current ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white font-extrabold shadow-2xs select-none">
                           Hiện tại
                         </span>
@@ -646,7 +647,7 @@ export function Settings() {
                       key: "actions",
                       header: "Thao tác",
                       align: "right",
-                      render: (row: any) => row.is_current ? (
+                      render: (row: AcademicYearRow) => row.is_current ? (
                         <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 justify-end select-none">
                           <Clock className="w-3.5 h-3.5" />
                           Đang chạy

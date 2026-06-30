@@ -21,6 +21,12 @@ import { Button, ConfirmDialog } from '../ui';
 import { toast } from '../../stores/toastStore';
 import { cn } from '../../lib/utils';
 import { zalo } from '../../lib/zalo';
+import type { TuitionFeeRow, StudentRow, GuardianRow } from '../../types/database';
+
+interface FeeWithJoins extends TuitionFeeRow {
+  students?: StudentRow & { classes?: { name: string } | null; guardians?: GuardianRow[] };
+  users?: { full_name: string };
+}
 
 interface FeeDetailPanelProps {
   feeId: string;
@@ -43,7 +49,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
     queryKey: ['fee-detail', feeId],
     queryFn: () => api.getById('tuition_fees', feeId, '*, students(id, full_name, student_code, classes(name), guardians(*)), users(full_name)')
   });
-  const fee = feeResponse?.data as any;
+  const fee = feeResponse?.data as FeeWithJoins | undefined;
 
   const handleEdit = () => {
     if (!fee) return;
@@ -73,7 +79,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
       setIsDeleteDialogOpen(false);
       closePanel();
       if (onDeleteSuccess) onDeleteSuccess();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error('Lỗi khi xóa phiếu thu', err.message || 'Lỗi hệ thống');
     } finally {
@@ -95,7 +101,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
       toast.success('Đã xác nhận thu đủ học phí!');
       queryClient.invalidateQueries({ queryKey: ['fee-detail', feeId] });
       queryClient.invalidateQueries({ queryKey: ['tuition-fees-list'] });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error('Lỗi khi cập nhật thanh toán', err.message || 'Lỗi hệ thống');
     } finally {
@@ -105,7 +111,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
 
   const handleZaloReminder = async () => {
     if (!fee) return;
-    const primaryGuardian = fee.students?.guardians?.find((g: any) => g.is_primary) || fee.students?.guardians?.[0];
+    const primaryGuardian = fee.students?.guardians?.find((g: GuardianRow) => g.is_primary) || fee.students?.guardians?.[0];
     const phone = primaryGuardian?.phone;
     const studentName = fee.students?.full_name || 'Học sinh';
 
@@ -123,7 +129,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
       } else {
         throw new Error(res.error || 'Lỗi gửi tin nhắn');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error('Lỗi khi gửi Zalo OA', err.message || 'Lỗi kết nối');
     } finally {
@@ -198,7 +204,7 @@ export const FeeDetailPanel: React.FC<FeeDetailPanelProps> = ({
     );
   }
 
-  const hasPhone = !!(fee.students?.guardians?.find((g: any) => g.is_primary)?.phone || fee.students?.guardians?.[0]?.phone);
+  const hasPhone = !!(fee.students?.guardians?.find((g: GuardianRow) => g.is_primary)?.phone || fee.students?.guardians?.[0]?.phone);
 
   return (
     <div className="flex flex-col h-full bg-surface-container-low select-none printable-panel">

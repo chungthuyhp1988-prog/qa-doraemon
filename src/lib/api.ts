@@ -71,8 +71,10 @@ async function handleResponse<T>(
  * @param options - Filter options from the calling code.
  * @returns The mutated query.
  */
+// Supabase query builders are heavily overloaded; a precise generic
+// constraint adds no safety here and breaks inference on chained methods.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyFilters(query: any, options?: FilterOptions, table?: string): any {
+function applyFilters(query: any, options?: FilterOptions, table?: string) {
   if (!options) return query;
 
   // Exact-match filters
@@ -175,14 +177,16 @@ async function getAll<T>(
       choi: 3,
       la: 4,
     };
-    rawData = [...rawData].sort((a: any, b: any) => {
-      const orderA = (a.grade_level && gradeOrder[a.grade_level]) || 99;
-      const orderB = (b.grade_level && gradeOrder[b.grade_level]) || 99;
+    rawData = [...rawData].sort((a, b) => {
+      const rowA = a as Record<string, unknown>;
+      const rowB = b as Record<string, unknown>;
+      const orderA = (rowA.grade_level && gradeOrder[rowA.grade_level as string]) || 99;
+      const orderB = (rowB.grade_level && gradeOrder[rowB.grade_level as string]) || 99;
 
       if (orderA !== orderB) return orderA - orderB;
 
       // Same grade: sort by name (numeric-aware for 'Doraemon 1', 'Doraemon 2')
-      return (a.name || '').localeCompare(b.name || '', 'vi', {
+      return ((rowA.name as string) || '').localeCompare((rowB.name as string) || '', 'vi', {
         numeric: true,
         sensitivity: 'base',
       });
