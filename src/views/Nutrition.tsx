@@ -53,14 +53,14 @@ export function Nutrition() {
   };
 
   const monday = getMonday(new Date(currentDate));
-  const weekDates = Array.from({ length: 5 }, (_, i) => {
+  const weekDates = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     return d;
   });
 
   const startOfWeekStr = weekDates[0].toISOString().split('T')[0];
-  const endOfWeekStr = weekDates[4].toISOString().split('T')[0];
+  const endOfWeekStr = weekDates[5].toISOString().split('T')[0];
 
   // 2. Fetch meal plans for the selected week
   const { data: mealPlansResponse, isLoading, isError, refetch } = useQuery({
@@ -88,8 +88,65 @@ export function Nutrition() {
 
   // Organize meal plans in a day-meal grid
   const getMealPlanForCell = (dateStr: string, mealType: string) => {
-    return mealPlans.find(mp => mp.date === dateStr && mp.meal_type === mealType);
+    return mealPlans.find(mp => {
+      if (mp.date !== dateStr) return false;
+      
+      // Ánh xạ tương thích ngược cho dữ liệu cũ
+      if (mealType === 'breakfast_7h30' && mp.meal_type === 'breakfast') return true;
+      if (mealType === 'lunch_10h25' && mp.meal_type === 'lunch') return true;
+      if (mealType === 'snack_15h25' && mp.meal_type === 'afternoon_snack') return true;
+      
+      return mp.meal_type === mealType;
+    });
   };
+
+  const MEAL_ROWS = [
+    {
+      mealGroup: 'breakfast',
+      mealGroupLabel: 'Bữa Sáng',
+      mealType: 'breakfast_7h30',
+      timeLabel: '7h30',
+      isGroupStart: true,
+      groupSpan: 2
+    },
+    {
+      mealGroup: 'breakfast',
+      mealGroupLabel: 'Bữa Sáng',
+      mealType: 'breakfast_9h40',
+      timeLabel: '9h40',
+      isGroupStart: false
+    },
+    {
+      mealGroup: 'lunch',
+      mealGroupLabel: 'Bữa Trưa',
+      mealType: 'lunch_10h25',
+      timeLabel: '10h25',
+      isGroupStart: true,
+      groupSpan: 2
+    },
+    {
+      mealGroup: 'lunch',
+      mealGroupLabel: 'Bữa Trưa',
+      mealType: 'lunch_chao',
+      timeLabel: 'Dành cho trẻ chưa ăn được cơm',
+      isGroupStart: false
+    },
+    {
+      mealGroup: 'afternoon',
+      mealGroupLabel: 'Bữa Chiều',
+      timeLabel: '14h15',
+      mealType: 'snack_14h15',
+      isGroupStart: true,
+      groupSpan: 2
+    },
+    {
+      mealGroup: 'afternoon',
+      mealGroupLabel: 'Bữa Chiều',
+      timeLabel: '15h25',
+      mealType: 'snack_15h25',
+      isGroupStart: false
+    }
+  ];
 
   // Navigating weeks
   const handlePrevWeek = () => {
@@ -164,11 +221,11 @@ export function Nutrition() {
     try {
       const lastMonday = new Date(monday);
       lastMonday.setDate(monday.getDate() - 7);
-      const lastFriday = new Date(monday);
-      lastFriday.setDate(monday.getDate() - 3);
+      const lastSaturday = new Date(monday);
+      lastSaturday.setDate(monday.getDate() - 2); // Thứ Bảy tuần trước
 
       const lastStartStr = lastMonday.toISOString().split('T')[0];
-      const lastEndStr = lastFriday.toISOString().split('T')[0];
+      const lastEndStr = lastSaturday.toISOString().split('T')[0];
 
       const filters: Record<string, any> = {};
       if (selectedClassId !== "all") {
@@ -208,26 +265,31 @@ export function Nutrition() {
 
       // Prepare cloned plans
       const schoolId = user?.school_id || '00000000-0000-0000-0000-000000000001';
-      const clonedPayloads = lastWeekPlans.map(mp => {
-        const mpDate = new Date(mp.date);
-        const dayOffset = mpDate.getDay() - 1; // 0 for Mon, 4 for Fri
-        
-        const newDate = new Date(monday);
-        newDate.setDate(monday.getDate() + dayOffset);
-        
-        return {
-          school_id: schoolId,
-          class_id: mp.class_id,
-          date: newDate.toISOString().split('T')[0],
-          meal_type: mp.meal_type,
-          menu_items: mp.menu_items,
-          calories: mp.calories,
-          notes: mp.notes,
-          created_by: user?.id || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      });
+      const clonedPayloads = lastWeekPlans
+        .filter(mp => {
+          const d = new Date(mp.date);
+          return d.getDay() !== 0; // Bỏ qua Chủ Nhật
+        })
+        .map(mp => {
+          const mpDate = new Date(mp.date);
+          const dayOffset = mpDate.getDay() === 0 ? 5 : mpDate.getDay() - 1;
+          
+          const newDate = new Date(monday);
+          newDate.setDate(monday.getDate() + dayOffset);
+          
+          return {
+            school_id: schoolId,
+            class_id: mp.class_id,
+            date: newDate.toISOString().split('T')[0],
+            meal_type: mp.meal_type,
+            menu_items: mp.menu_items,
+            calories: mp.calories,
+            notes: mp.notes,
+            created_by: user?.id || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        });
 
       // Bulk insert
       const res = await api.createMany('meal_plans', clonedPayloads);
@@ -374,89 +436,137 @@ export function Nutrition() {
         <div className="overflow-x-auto max-h-[650px] overflow-y-auto relative bg-surface border border-outline-variant/40 rounded-[32px] print:border-slate-300 print:rounded-none shadow-xs">
           <table className="w-full text-left text-sm border-collapse min-w-[800px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-outline-variant/30 print:bg-slate-100 print:border-slate-300">
-                <th className="px-4 py-4 font-extrabold text-on-surface text-[11px] uppercase tracking-wider text-center w-[12%] sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_0_var(--color-outline-variant)]">Bữa ăn</th>
+              <tr className="bg-[#33a2f2] border-b border-sky-400 print:bg-[#33a2f2]">
+                <th className="px-3 py-3 font-extrabold text-slate-900 text-[11px] uppercase tracking-wider text-center w-[6%] sticky top-0 z-10 bg-[#33a2f2] shadow-[0_1px_0_0_#38bdf8] select-none">Bữa ăn</th>
+                <th className="px-3 py-3 font-extrabold text-slate-900 text-[11px] uppercase tracking-wider text-center w-[10%] sticky top-0 z-10 bg-[#33a2f2] shadow-[0_1px_0_0_#38bdf8] border-l border-sky-300 select-none">Thời gian</th>
                 {weekDates.map((d, index) => {
-                  const dayName = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'][index];
+                  const dayName = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'][index];
                   const isToday = new Date().toDateString() === d.toDateString();
                   return (
                     <th
                       key={index}
                       className={cn(
-                        "px-4 py-4 font-extrabold text-[11px] uppercase tracking-wider text-center border-l border-outline-variant/30 print:border-slate-300 sticky top-0 z-10 shadow-[0_1px_0_0_var(--color-outline-variant)]",
+                        "px-4 py-3 font-extrabold text-[11px] uppercase tracking-wider text-center border-l border-sky-300 sticky top-0 z-10 shadow-[0_1px_0_0_#38bdf8] select-none",
                         isToday 
-                          ? "bg-primary-container text-primary print:bg-transparent print:text-slate-800" 
-                          : "bg-slate-50 text-on-surface-variant"
+                          ? "bg-amber-100 text-amber-900 print:bg-amber-100" 
+                          : "bg-[#33a2f2] text-slate-900"
                       )}
                     >
                       <div className="font-bold">{dayName}</div>
-                      <div className="text-[10px] opacity-75 mt-0.5 font-medium">{d.toLocaleDateString('vi-VN')}</div>
+                      <div className="text-[10px] opacity-80 mt-0.5 font-medium">{d.toLocaleDateString('vi-VN')}</div>
                     </th>
                   );
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/20 print:divide-slate-300">
-              {['breakfast', 'lunch', 'afternoon_snack'].map((mealType) => (
-                <tr key={mealType} className="hover:bg-slate-50/20 transition-colors">
-                  {/* Meal column */}
-                  <td className="px-4 py-6 font-bold text-on-surface flex flex-col items-center justify-center gap-1.5 border-r border-outline-variant/10 print:border-slate-200 min-h-[120px] select-none">
-                    {getMealTypeIcon(mealType)}
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider mt-1">{getMealTypeLabel(mealType)}</span>
+            <tbody className="divide-y divide-sky-100 print:divide-slate-200">
+              {MEAL_ROWS.map((row, rowIndex) => (
+                <tr 
+                  key={row.mealType} 
+                  className={cn(
+                    "hover:bg-sky-50/10 transition-colors",
+                    row.mealType === 'lunch_chao' && "bg-amber-50/10 print:bg-amber-50/10"
+                  )}
+                >
+                  {/* Bữa ăn (Group) - Sử dụng RowSpan */}
+                  {row.isGroupStart && (
+                    <td 
+                      rowSpan={row.groupSpan} 
+                      className="bg-[#99d5ff] print:bg-[#99d5ff] text-center border-r border-sky-200 print:border-slate-300 select-none align-middle w-[6%] [print-color-adjust:exact]"
+                      style={{ verticalAlign: 'middle' }}
+                    >
+                      <div 
+                        className="font-extrabold text-sky-950 text-xs tracking-widest text-center mx-auto uppercase py-4"
+                        style={{ 
+                          writingMode: 'vertical-lr', 
+                          transform: 'rotate(180deg)', 
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {row.mealGroupLabel}
+                      </div>
+                    </td>
+                  )}
+
+                  {/* Thời gian */}
+                  <td 
+                    className={cn(
+                      "px-2 py-4 font-bold text-center border-r border-sky-100 print:border-slate-200 text-xs w-[10%] select-none bg-slate-50/50 print:bg-slate-50",
+                      row.mealType === 'lunch_chao' && "bg-amber-50/40 print:bg-amber-50/40"
+                    )}
+                    style={{ verticalAlign: 'middle' }}
+                  >
+                    {row.timeLabel === 'Dành cho trẻ chưa ăn được cơm' ? (
+                      <div 
+                        className="text-[10px] text-red-600 font-extrabold text-center mx-auto leading-none py-2"
+                        style={{ 
+                          writingMode: 'vertical-lr', 
+                          transform: 'rotate(180deg)', 
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block'
+                        }}
+                      >
+                        Dành cho trẻ chưa ăn cơm
+                      </div>
+                    ) : (
+                      <span className="font-mono text-xs text-slate-700">{row.timeLabel}</span>
+                    )}
                   </td>
 
-                  {/* Days columns */}
+                  {/* Các ngày trong tuần */}
                   {weekDates.map((d, dayIndex) => {
                     const dateStr = d.toISOString().split('T')[0];
-                    const plan = getMealPlanForCell(dateStr, mealType);
+                    const plan = getMealPlanForCell(dateStr, row.mealType);
                     
                     return (
                       <td 
                         key={dayIndex} 
                         onClick={() => plan && handleOpenDetail(plan.id)}
                         className={cn(
-                          "px-4 py-4 text-center border-l border-outline-variant/10 print:border-slate-200 align-top relative group min-w-[150px]",
-                          plan && "cursor-pointer hover:bg-slate-50/50 transition-colors"
+                          "px-4 py-4 text-center border-l border-sky-100 print:border-slate-200 align-top relative group min-w-[130px] transition-all",
+                          plan ? "cursor-pointer hover:bg-sky-50/30" : "hover:bg-slate-50/30",
+                          row.mealType === 'lunch_chao' && "border-t border-dashed border-sky-300! bg-amber-50/10 print:bg-amber-50/5"
                         )}
                       >
                         {plan ? (
-                          <div className="flex flex-col justify-between h-full min-h-[95px] text-left">
+                          <div className="flex flex-col justify-between h-full min-h-[90px] text-left">
                             <div className="space-y-2">
-                              <p className="text-xs font-semibold text-on-surface whitespace-pre-line leading-relaxed">
+                              <p className="text-xs font-semibold text-slate-800 whitespace-pre-line leading-relaxed">
                                 {plan.menu_items}
                               </p>
                               {plan.calories && (
-                                <div className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-100">
+                                <div className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-100 print:bg-white">
                                   <Flame className="w-2.5 h-2.5 shrink-0" />
                                   {plan.calories} kcal
                                 </div>
                               )}
                               {plan.notes && (
-                                <p className="text-[10px] text-on-surface-variant italic leading-tight select-text" onClick={(e) => e.stopPropagation()}>
+                                <p className="text-[10px] text-slate-500 italic leading-tight select-text" onClick={(e) => e.stopPropagation()}>
                                   Lưu ý: {plan.notes}
                                 </p>
                               )}
                             </div>
 
                             {/* View detail button on hover (prints-hidden) */}
-                            <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity mt-3 print:hidden">
+                            <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity mt-2 print:hidden">
                               <span className="p-1 text-primary bg-primary/5 rounded-lg border border-primary/20 flex items-center justify-center">
                                 <Eye className="w-3.5 h-3.5" />
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <div className="flex flex-col items-center justify-center min-h-[95px] h-full" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-col items-center justify-center min-h-[90px] h-full" onClick={(e) => e.stopPropagation()}>
                             {isPrivileged ? (
                               <button
-                                onClick={() => handleQuickAddClick(dateStr, mealType)}
-                                className="w-8 h-8 rounded-full border border-dashed border-outline-variant/60 hover:border-primary text-on-surface-variant/40 hover:text-primary hover:bg-primary/5 flex items-center justify-center transition-all cursor-pointer print:hidden"
+                                onClick={() => handleQuickAddClick(dateStr, row.mealType)}
+                                className="w-8 h-8 rounded-full border border-dashed border-sky-200 hover:border-primary text-sky-400 hover:text-primary hover:bg-primary/5 flex items-center justify-center transition-all cursor-pointer print:hidden"
                                 title="Thêm thực đơn nhanh"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
                             ) : (
-                              <span className="text-xs text-on-surface-variant/35 italic select-none">Chưa có thực đơn</span>
+                              <span className="text-xs text-slate-400/60 italic select-none">Chưa có thực đơn</span>
                             )}
                           </div>
                         )}
@@ -471,9 +581,13 @@ export function Nutrition() {
       )}
 
       {/* Footer notes on printed menu */}
-      <div className="hidden print:flex justify-between items-center text-[10px] text-slate-500 mt-8 border-t border-slate-200 pt-4">
-        <span>BGH TRƯỜNG MẦM NON DORAEMON</span>
-        <span>Phụ huynh vui lòng theo dõi chế độ dinh dưỡng hàng ngày của trẻ tại ứng dụng.</span>
+      <div className="hidden print:flex justify-between items-center text-[10px] text-slate-500 mt-8 border-t border-slate-200 pt-4 font-inter">
+        <div className="text-left font-bold text-slate-700">
+          TRƯỜNG MẦM NON DORAEMON
+        </div>
+        <div>
+          Phụ huynh vui lòng theo dõi chế độ dinh dưỡng hàng ngày của trẻ trên ứng dụng.
+        </div>
       </div>
 
       <ConfirmDialog

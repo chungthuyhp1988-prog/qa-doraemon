@@ -98,6 +98,13 @@ export const MealPlanDetailPanel: React.FC<MealPlanDetailPanelProps> = ({
 
   const getMealTypeLabel = (type: string) => {
     switch (type) {
+      case 'breakfast_7h30': return 'Bữa Sáng - 7h30';
+      case 'breakfast_9h40': return 'Bữa Sáng - 9h40';
+      case 'lunch_10h25': return 'Bữa Trưa - 10h25';
+      case 'lunch_chao': return 'Bữa Trưa - Cháo cho trẻ chưa ăn cơm';
+      case 'snack_14h15': return 'Bữa Chiều - 14h15';
+      case 'snack_15h25': return 'Bữa Chiều - 15h25';
+      // Tương thích ngược
       case 'breakfast': return 'Bữa Sáng';
       case 'lunch': return 'Bữa Trưa';
       case 'afternoon_snack': return 'Bữa Phụ chiều';
@@ -106,16 +113,16 @@ export const MealPlanDetailPanel: React.FC<MealPlanDetailPanelProps> = ({
   };
 
   const getMealTypeIcon = (type: string) => {
-    switch (type) {
-      case 'breakfast':
-        return <Coffee className="w-5 h-5 text-amber-500" />;
-      case 'lunch':
-        return <UtensilsCrossed className="w-5 h-5 text-primary" />;
-      case 'afternoon_snack':
-        return <Apple className="w-5 h-5 text-success" />;
-      default:
-        return null;
+    if (type.startsWith('breakfast')) {
+      return <Coffee className="w-5 h-5 text-amber-500" />;
     }
+    if (type.startsWith('lunch')) {
+      return <UtensilsCrossed className="w-5 h-5 text-primary" />;
+    }
+    if (type.startsWith('snack') || type === 'afternoon_snack') {
+      return <Apple className="w-5 h-5 text-success" />;
+    }
+    return null;
   };
 
   if (isLoadingMeal) {

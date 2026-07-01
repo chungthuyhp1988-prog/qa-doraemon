@@ -18,7 +18,14 @@ import { useQueryClient } from '@tanstack/react-query';
 const mealPlanFormSchema = z.object({
   class_id: z.string().optional().nullable().or(z.literal('')),
   date: z.string().min(1, 'Ngày áp dụng thực đơn là bắt buộc'),
-  meal_type: z.enum(['breakfast', 'lunch', 'afternoon_snack']),
+  meal_type: z.enum([
+    'breakfast_7h30',
+    'breakfast_9h40',
+    'lunch_10h25',
+    'lunch_chao',
+    'snack_14h15',
+    'snack_15h25'
+  ]),
   menu_items: z.string().min(1, 'Danh sách món ăn là bắt buộc'),
   calories: z.coerce.number().min(0, 'Hàm lượng calo không hợp lệ').optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -31,6 +38,70 @@ interface MealPlanFormProps {
   classesList: any[];
   onSuccess?: () => void;
 }
+
+const SUGGESTIONS: Record<string, string[]> = {
+  breakfast_7h30: [
+    'Phở gà / Cháo gà bí đỏ',
+    'Bánh canh tôm thịt / Cháo tôm mồng tơi',
+    'Miến gạo lứt thịt bò / Cháo thịt bò rau ngót',
+    'Hủ tiếu tôm thịt / Cháo thịt nạc cà rốt',
+    'Phở bò / Cháo bò mồng tơi',
+    'Cháo sườn đậu đỏ'
+  ],
+  breakfast_9h40: [
+    'Sữa chua uống TH',
+    'Sữa chua uống Yakult',
+    'Sữa tươi tiệt trùng',
+    'Sữa chua ăn SuSu'
+  ],
+  lunch_10h25: [
+    'Cơm mềm',
+    'Thịt chưng mắm tép',
+    'Su hào cà rốt xào',
+    'Canh chua thịt bò',
+    'Thanh long đỏ',
+    'Trứng gà đúc thịt',
+    'Củ quả luộc chấm muối vừng',
+    'Canh mồng tơi tôm',
+    'Dưa lưới',
+    'Chả gà rau củ',
+    'Bí xanh xào',
+    'Canh xương gà rong biển',
+    'Dưa hấu không hạt',
+    'Bò viên sốt cà chua',
+    'Củ cải cà rốt xào',
+    'Canh rau cải thịt nạc',
+    'Táo Mỹ',
+    'Ruốc bông cá thu',
+    'Canh đậu hũ cà chua',
+    'Tôm thịt nạc hầm',
+    'Su su cà rốt xào',
+    'Canh mướp hương tôm'
+  ],
+  lunch_chao: [
+    'Cháo thịt nạc cải bó xôi',
+    'Cháo thịt bò cà rốt',
+    'Cháo gà đậu Hà Lan',
+    'Cháo bò khoai lang',
+    'Cháo cá thu bí đỏ',
+    'Cháo thịt nạc cà rốt'
+  ],
+  snack_14h15: [
+    'Sữa đậu phộng cacao',
+    'Sữa ngô nếp',
+    'Sữa gạo lứt huyết rồng hạnh nhân',
+    'Sữa đậu xanh cốt dừa',
+    'Sữa bí đỏ macca'
+  ],
+  snack_15h25: [
+    'Cháo cá bớp đậu đỏ',
+    'Mỳ rau củ thịt gà / Cháo gà khoai lang',
+    'Cháo cá hồi Nauy cải bó xôi',
+    'Xôi mường + trứng rán / Cháo gà rau ngót',
+    'Miến gạo tôm trứng cút / Cháo tôm củ dền',
+    'Soup gà + bánh mỳ mềm / Cháo gà đậu xanh'
+  ]
+};
 
 export const MealPlanForm: React.FC<MealPlanFormProps> = ({
   mealPlan,
@@ -47,7 +118,7 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
   const defaultValues: MealPlanFormValues = {
     class_id: mealPlan?.class_id || '',
     date: mealPlan?.date ? mealPlan.date.split('T')[0] : new Date().toISOString().split('T')[0],
-    meal_type: mealPlan?.meal_type || 'lunch',
+    meal_type: mealPlan?.meal_type || 'lunch_10h25',
     menu_items: mealPlan?.menu_items || '',
     calories: mealPlan?.calories || 0,
     notes: mealPlan?.notes || '',
@@ -57,11 +128,28 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
     register,
     handleSubmit,
     control,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<MealPlanFormValues>({
     resolver: zodResolver(mealPlanFormSchema) as any,
     defaultValues,
   });
+
+  const selectedMealType = watch('meal_type');
+
+  const handleAddSuggestion = (suggestion: string) => {
+    const currentVal = watch('menu_items') || '';
+    if (currentVal.includes(suggestion)) return;
+    
+    let newVal = currentVal.trim();
+    if (newVal === '') {
+      newVal = suggestion;
+    } else {
+      newVal = `${newVal}\n${suggestion}`;
+    }
+    setValue('menu_items', newVal, { shouldValidate: true });
+  };
 
   const onSubmit = async (values: MealPlanFormValues) => {
     setLoading(true);
@@ -119,9 +207,12 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
           <Select
             label="Bữa ăn trong ngày"
             options={[
-              { value: 'breakfast', label: 'Bữa sáng (Bữa chính 1)' },
-              { value: 'lunch', label: 'Bữa trưa (Bữa chính 2)' },
-              { value: 'afternoon_snack', label: 'Bữa phụ chiều' },
+              { value: 'breakfast_7h30', label: 'Bữa sáng - Khung 7h30' },
+              { value: 'breakfast_9h40', label: 'Bữa sáng - Khung 9h40 (Sữa chua)' },
+              { value: 'lunch_10h25', label: 'Bữa trưa - Khung 10h25' },
+              { value: 'lunch_chao', label: 'Bữa trưa - Cháo cho trẻ chưa ăn cơm' },
+              { value: 'snack_14h15', label: 'Bữa chiều - Khung 14h15 (Sữa)' },
+              { value: 'snack_15h25', label: 'Bữa chiều - Khung 15h25' },
             ]}
             error={errors.meal_type?.message}
             {...register('meal_type')}
@@ -147,13 +238,36 @@ export const MealPlanForm: React.FC<MealPlanFormProps> = ({
           />
         </div>
 
-        <Textarea
-          label="Món ăn chi tiết"
-          placeholder="Nhập tên món ăn, danh mục (Ví dụ: - Súp gà hạt sen \n- Cơm tám thơm \n- Nước cam tươi...)"
-          rows={5}
-          error={errors.menu_items?.message}
-          {...register('menu_items')}
-        />
+        <div className="space-y-2">
+          <Textarea
+            label="Món ăn chi tiết"
+            placeholder="Nhập tên món ăn, danh mục (Ví dụ: - Súp gà hạt sen \n- Cơm tám thơm \n- Nước cam tươi...)"
+            rows={5}
+            error={errors.menu_items?.message}
+            {...register('menu_items')}
+          />
+          
+          {/* Quick Suggestions Section */}
+          {SUGGESTIONS[selectedMealType] && (
+            <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-3">
+              <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-2">
+                💡 Nhấp chọn nhanh món ăn gợi ý:
+              </span>
+              <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-1">
+                {SUGGESTIONS[selectedMealType].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => handleAddSuggestion(suggestion)}
+                    className="px-2.5 py-1 text-xs bg-white hover:bg-primary-container hover:text-primary border border-outline-variant/50 hover:border-primary/30 rounded-lg text-on-surface-variant transition-all cursor-pointer font-medium shadow-2xs"
+                  >
+                    + {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         <Textarea
           label="Lưu ý / Ghi chú dị ứng thức ăn"
