@@ -883,6 +883,7 @@ export function Students() {
         {
           key: "registration_date" as keyof StudentWithRelations,
           header: "Ngày đăng ký",
+          sortable: true,
           render: (row: StudentWithRelations) => (
             <span className="text-on-surface-variant font-medium text-[13px]">
               {row.registration_date ? new Date(row.registration_date).toLocaleDateString('vi-VN') : '—'}
