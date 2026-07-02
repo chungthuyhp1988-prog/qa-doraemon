@@ -978,7 +978,7 @@ export function Students() {
             onChange={(e) => setSelectedPriority(e.target.value)}
             className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
           >
-            <option value="all">Tất cả đối tượng ưu tiên</option>
+            <option value="all">Tất cả các đối tượng</option>
             <option value="Con GVNV">Ưu tiên 1 (Con GVNV)</option>
             <option value="Anh chị đang học ở trường">Ưu tiên 2 (Anh chị đang học ở trường)</option>
             <option value="HĐQT">Ưu tiên 3 (HĐQT)</option>
