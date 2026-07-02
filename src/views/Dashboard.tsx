@@ -114,7 +114,7 @@ export function Dashboard() {
         .from('students')
         .select('id, full_name, registration_date, priority_status, created_at, guardians(phone, is_primary)')
         .in('status', ['waiting', 'registered'])
-        .order('registration_date', { ascending: false })
+        .order('registration_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -168,7 +168,8 @@ export function Dashboard() {
     { label: "Doraemon", value: gradeCounts.doraemon.total, percent: yMax > 0 ? Math.round((gradeCounts.doraemon.total / yMax) * 100) : 0 }
   ];
 
-  const formatRegDate = (dateStr: string | null) => {
+  const formatRegDate = (student: any) => {
+    const dateStr = student.registration_date || student.created_at;
     if (!dateStr) return '—';
     try {
       const date = new Date(dateStr);
@@ -178,7 +179,7 @@ export function Dashboard() {
         year: 'numeric'
       });
     } catch {
-      return dateStr;
+      return '—';
     }
   };
 
@@ -423,7 +424,7 @@ export function Dashboard() {
                           SĐT: {getPrimaryPhone(student.guardians)}
                         </p>
                         <p className="text-[10px] text-on-surface-variant/70 mt-1 font-mono">
-                          Đăng ký: {formatRegDate(student.registration_date)}
+                          Đăng ký: {formatRegDate(student)}
                         </p>
                       </div>
                       {student.priority_status && student.priority_status !== 'none' && (
