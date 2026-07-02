@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MoreVertical,
   Users,
@@ -6,13 +6,16 @@ import {
   UserCheck,
   Clock,
   Calendar,
-  GraduationCap
+  GraduationCap,
+  User
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { supabase } from "../lib/supabase";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Skeleton } from "../components/ui";
+import { useSlidePanel } from "../context/SlidePanelContext";
+import { StudentDetailPanel } from "../components/details/StudentDetailPanel";
 
 export function Dashboard() {
   const today = new Date();
@@ -125,6 +128,40 @@ export function Dashboard() {
       };
     }
   });
+
+  const { openPanel } = useSlidePanel();
+  const queryClient = useQueryClient();
+
+  // Fetch classes list for student details panel
+  const { data: classesListResponse } = useQuery({
+    queryKey: ['classes-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    }
+  });
+  const classesList = classesListResponse ?? [];
+
+  const handleOpenDetail = (studentId: string) => {
+    openPanel({
+      title: 'Hồ sơ chi tiết học sinh',
+      icon: <User size={14} />,
+      width: 768,
+      component: (
+        <StudentDetailPanel 
+          studentId={studentId} 
+          classesList={classesList}
+          onDeleteSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats-v3'] });
+          }}
+        />
+      )
+    });
+  };
 
   const counts = stats?.counts ?? {
     active: 0,
@@ -416,7 +453,11 @@ export function Dashboard() {
               <h3 className="text-[20px] font-bold italic font-playfair text-on-surface mb-6">Đăng ký mới gần đây</h3>
               <div className="space-y-4 max-h-[460px] overflow-y-auto pr-1">
                 {stats?.newRegistrations.map((student: any) => (
-                  <div key={student.id} className="bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl p-4 border border-outline-variant/30 hover:border-amber-400 transition-all duration-200">
+                  <div 
+                    key={student.id} 
+                    onClick={() => handleOpenDetail(student.id)}
+                    className="bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl p-4 border border-outline-variant/30 hover:border-amber-400 hover:bg-amber-100/30 dark:hover:bg-amber-900/20 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-sm"
+                  >
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-[13.5px] font-bold text-on-surface leading-tight font-inter">{student.full_name}</p>
