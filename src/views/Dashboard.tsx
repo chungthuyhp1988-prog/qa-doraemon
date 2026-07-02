@@ -22,23 +22,57 @@ export function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats-v3', todayStr],
     queryFn: async () => {
-      // Fetch counts for all student statuses
-      const statuses = ['active', 'registered', 'waiting', 'future', 'graduated'];
-      const counts: Record<string, number> = {
-        active: 0,
-        registered: 0,
-        waiting: 0,
-        future: 0,
-        graduated: 0
-      };
+      // Fetch counts for active, registered, and graduated statuses
+      const { count: activeCount } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active');
 
-      await Promise.all(statuses.map(async (status) => {
-        const { count } = await supabase
-          .from('students')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', status);
-        counts[status] = count ?? 0;
-      }));
+      const { count: registeredCount } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'registered');
+
+      const { count: graduatedCount } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'graduated');
+
+      // Fetch all students with status 'waiting' to separate waiting and future
+      const { data: waitingStudents } = await supabase
+        .from('students')
+        .select('date_of_birth, target_school_year')
+        .eq('status', 'waiting');
+
+      let waitingCount = 0;
+      let futureCount = 0;
+
+      if (waitingStudents) {
+        waitingStudents.forEach((student: any) => {
+          if (!student.date_of_birth) {
+            waitingCount++;
+            return;
+          }
+          const birthYear = new Date(student.date_of_birth).getFullYear();
+          
+          const isFutureYear = birthYear === 2025 || student.target_school_year === '2027-2028';
+          if (isFutureYear) {
+            futureCount++;
+          } else if (birthYear === 2023 || birthYear === 2024) {
+            waitingCount++;
+          } else {
+            waitingCount++;
+          }
+        });
+      }
+
+      const counts = {
+        active: activeCount ?? 0,
+        registered: registeredCount ?? 0,
+        waiting: waitingCount,
+        future: futureCount,
+        graduated: graduatedCount ?? 0
+      };
 
       // Fetch class distribution and gender for active students
       const { data: classStats } = await supabase
