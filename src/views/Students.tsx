@@ -43,14 +43,18 @@ interface ExcelStudentRow {
 
 /** Helper to split full name into first name and middle/last name for Vietnamese sorting */
 const getVietnameseSortKeys = (fullName: string) => {
-  const trimmed = (fullName || '').trim();
-  if (!trimmed) return { firstName: '', middleAndLastName: '' };
+  let cleanName = (fullName || '').trim();
   
-  const parts = trimmed.split(/\s+/);
+  // Remove trailing parentheses like (B), (A), etc. at the end of the name
+  cleanName = cleanName.replace(/\s*[\(\[].*?[\)\]]\s*$/g, '').trim();
+
+  if (!cleanName) return { firstName: '', middleAndLastName: '' };
+  
+  const parts = cleanName.split(/\s+/);
   if (parts.length === 1) {
     return { firstName: parts[0], middleAndLastName: '' };
   }
-  const firstName = parts[parts.length - 1]; // Tên chính
+  const firstName = parts[parts.length - 1]; // Tên chính thực sự
   const middleAndLastName = parts.slice(0, parts.length - 1).join(' '); // Họ và đệm
   
   return { firstName, middleAndLastName };
@@ -660,7 +664,7 @@ export function Students() {
               {row.profile_image_url ? (
                 <img src={row.profile_image_url} alt={row.full_name} className="w-full h-full object-cover" />
               ) : (
-                row.full_name.substring(0, 1)
+                getVietnameseSortKeys(row.full_name).firstName.substring(0, 1).toUpperCase() || 'H'
               )}
             </div>
             <div className="min-w-0">
