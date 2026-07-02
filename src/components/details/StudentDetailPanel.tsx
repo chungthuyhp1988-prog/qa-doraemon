@@ -68,6 +68,7 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
       toast.success('Cập nhật trạng thái học sinh thành công!');
       queryClient.invalidateQueries({ queryKey: ['student-detail', studentId] });
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi cập nhật trạng thái: ' + (err.message || 'Lỗi hệ thống'));
@@ -89,6 +90,7 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
       toast.success('Cập nhật đối tượng ưu tiên thành công!');
       queryClient.invalidateQueries({ queryKey: ['student-detail', studentId] });
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
     } catch (err: any) {
       console.error(err);
       toast.error('Lỗi khi cập nhật đối tượng ưu tiên: ' + (err.message || 'Lỗi hệ thống'));
@@ -130,6 +132,7 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['student-detail', studentId] });
             queryClient.invalidateQueries({ queryKey: ['students-list'] });
+            queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
           }}
         />
       )
@@ -143,6 +146,7 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
       if (res.error) throw new Error(res.error);
       toast.success('Xóa hồ sơ học sinh thành công!');
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
       setIsDeleteDialogOpen(false);
       closePanel();
       if (onDeleteSuccess) onDeleteSuccess();

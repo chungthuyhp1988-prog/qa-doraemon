@@ -224,6 +224,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
 
       // Invalidate query to refresh students list
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
       if (onSuccess) onSuccess();
       closePanel();
     } catch (err: any) {
