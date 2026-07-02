@@ -9,7 +9,6 @@ import {
   CalendarCheck,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { supabase } from "../lib/supabase";
 import { api } from "../lib/api";
 import { formatCurrency, getGradeName } from "../lib/formatters";
 import { useAppStore } from "../stores/appStore";
@@ -43,11 +42,11 @@ export function Reports() {
     queryKey: ["report-students", selectedAcademicYearId],
     queryFn: async () => {
       if (!selectedAcademicYearId) return null;
-      const { data, error } = await (supabase.rpc as any)(
+      const { data, error } = await api.callRpc<any>(
         "report_students_summary",
         { p_academic_year_id: selectedAcademicYearId }
       );
-      if (error) throw error;
+      if (error) throw new Error(error);
       return data as {
         by_grade: { grade_level: string; total: number; active: number; male: number; female: number }[];
         by_class: { class_id: string; class_name: string; grade_level: string; teacher_name: string; total: number; active: number }[];
@@ -62,7 +61,7 @@ export function Reports() {
     queryKey: ["report-attendance", selectedAcademicYearId, month],
     queryFn: async () => {
       if (!selectedAcademicYearId) return null;
-      const { data, error } = await (supabase.rpc as any)(
+      const { data, error } = await api.callRpc<any>(
         "report_attendance",
         {
           p_academic_year_id: selectedAcademicYearId,
@@ -70,7 +69,7 @@ export function Reports() {
           p_class_id: null,
         }
       );
-      if (error) throw error;
+      if (error) throw new Error(error);
       return data as {
         class_id: string;
         class_name: string;
@@ -91,12 +90,12 @@ export function Reports() {
     queryKey: ["report-finance", selectedAcademicYearId, month],
     queryFn: async () => {
       if (!selectedAcademicYearId) return null;
-      const { data, error } = await (supabase.rpc as any)("report_finance", {
+      const { data, error } = await api.callRpc<any>("report_finance", {
         p_academic_year_id: selectedAcademicYearId,
         p_month: month ? parseInt(month) : null,
         p_class_id: null,
       });
-      if (error) throw error;
+      if (error) throw new Error(error);
       return data as {
         class_id: string;
         class_name: string;

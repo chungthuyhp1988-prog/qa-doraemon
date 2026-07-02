@@ -34,6 +34,37 @@
   --color-error-container: #fee2e2;
   --color-on-error-container: #b91c1c;
 
+  --color-success: #10b981;
+  --color-on-success: #ffffff;
+  --color-success-container: #d1fae5;
+  --color-on-success-container: #065f46;
+
+  --color-warning: #f59e0b;
+  --color-on-warning: #ffffff;
+  --color-warning-container: #fef3c7;
+  --color-on-warning-container: #92400e;
+
+  --color-info: #3b82f6;
+  --color-on-info: #ffffff;
+  --color-info-container: #dbeafe;
+  --color-on-info-container: #1e40af;
+
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-slidepanel: 1040;
+  --z-index-backdrop: 1050;
+  --z-index-modal: 1060;
+  --z-index-popover: 1070;
+  --z-index-tooltip: 1080;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-xxl: 24px;
+
   --spacing-container-padding-desktop: 24px;
   --spacing-container-padding-mobile: 16px;
   --spacing-topbar-height: 72px;
@@ -103,6 +134,15 @@
 
   --color-error-container: #7f1d1d;
   --color-on-error-container: #fee2e2;
+
+  --color-success-container: #064e3b;
+  --color-on-success-container: #d1fae5;
+
+  --color-warning-container: #78350f;
+  --color-on-warning-container: #fef3c7;
+
+  --color-info-container: #1e3a8a;
+  --color-on-info-container: #dbeafe;
 }
 
 /* ── Premium Scrollbar styling ─────────────────────── */
@@ -158,6 +198,11 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12) !important;
   border-color: var(--color-primary) !important;
+}
+
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px !important;
 }
 
 /* =============================================================================

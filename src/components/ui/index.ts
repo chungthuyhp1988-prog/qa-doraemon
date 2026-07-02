@@ -30,3 +30,10 @@ export { useSlidePanel, useSlidePanelSafe } from "../../context/SlidePanelContex
 // Excel Import Modal
 export { ExcelImportModal } from "./ExcelImportModal";
 
+// New components added in Phase 5
+export { Tooltip } from "./Tooltip";
+export { Checkbox } from "./Checkbox";
+export { Dropdown, type DropdownItem } from "./Dropdown";
+export { Breadcrumb, type BreadcrumbItem } from "./Breadcrumb";
+
+

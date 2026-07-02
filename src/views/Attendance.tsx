@@ -18,10 +18,9 @@ import { api } from "../lib/api";
 import { DatePicker, Skeleton, EmptyState, ErrorState, Button, Modal, Table, type TableColumn } from "../components/ui";
 import { toast } from "../stores/toastStore";
 import { useAuthStore } from "../stores/authStore";
-import { useAppStore } from "../stores/appStore";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { sortClasses } from "../lib/classUtils";
+import { useClassesList } from "../hooks/useClassesList";
 
 export function Attendance() {
   const queryClient = useQueryClient();
@@ -46,21 +45,8 @@ export function Attendance() {
   const [selectedStudentForNote, setSelectedStudentForNote] = useState<any>(null);
   const [tempNote, setTempNote] = useState("");
 
-  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
-
   // 1. Fetch classes list for selection
-  const { data: classesResponse, isLoading: isLoadingClasses } = useQuery({
-    queryKey: ['classes-list', selectedAcademicYearId],
-    queryFn: () => {
-      const filters: Record<string, any> = { is_active: true };
-      if (selectedAcademicYearId) {
-        filters.academic_year_id = selectedAcademicYearId;
-      }
-      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
-    }
-  });
-  const rawClassesList = classesResponse?.data?.data || [];
-  const classesList = sortClasses(rawClassesList);
+  const { classesList, isLoading: isLoadingClasses } = useClassesList();
 
   // Automatically select the first class if none is selected
   useEffect(() => {

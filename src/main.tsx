@@ -1,28 +1,33 @@
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// Unregister old service workers and clear cache to force update
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister().then((success) => {
+// Async unregister old service workers and clear cache to force update
+const cleanupServiceWorkersAndCaches = async () => {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        const success = await registration.unregister();
         if (success) {
-          console.log('Successfully unregistered service worker');
+          console.log('[SW] Cleaned up legacy service worker:', registration);
         }
-      });
+      }
     }
-  });
-}
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+      if (keys.length > 0) {
+        console.log('[Cache] Cleared legacy cache storages:', keys);
+      }
+    }
+  } catch (error) {
+    console.warn('[Cleanup] Failed to unregister service workers or clear cache:', error);
+  }
+};
 
-if ('caches' in window) {
-  caches.keys().then((names) => {
-    for (const name of names) {
-      caches.delete(name);
-    }
-  });
-}
+cleanupServiceWorkersAndCaches();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

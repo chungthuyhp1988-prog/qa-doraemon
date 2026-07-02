@@ -21,7 +21,6 @@ import { ConfirmDialog, useSlidePanel, ErrorState } from "../components/ui";
 import { NotificationForm } from "../components/forms/NotificationForm";
 import { NotificationDetailPanel } from "../components/details/NotificationDetailPanel";
 import { useAuthStore } from "../stores/authStore";
-import { useAppStore } from "../stores/appStore";
 import type { NotificationRow, ClassRow } from "../types";
 
 /** Notification row with joined user info from the `created_by` foreign key. */
@@ -31,7 +30,7 @@ interface NotificationWithUser extends NotificationRow {
 
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { supabase } from "../lib/supabase";
-import { sortClasses } from "../lib/classUtils";
+import { useClassesList } from "../hooks/useClassesList";
 
 export function Notifications() {
   const queryClient = useQueryClient();
@@ -50,21 +49,8 @@ export function Notifications() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all"); // all, read, unread
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
-
   // 1. Fetch classes for the creation form
-  const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list-notif', selectedAcademicYearId],
-    queryFn: () => {
-      const filters: Record<string, string | number | boolean | null> = { is_active: true };
-      if (selectedAcademicYearId) {
-        filters.academic_year_id = selectedAcademicYearId;
-      }
-      return api.getAll<ClassRow>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
-    }
-  });
-  const rawClassesList = classesResponse?.data?.data || [];
-  const classesList = sortClasses(rawClassesList);
+  const { classesList } = useClassesList();
 
   // 2. Fetch notifications list
   const { data: notificationsResponse, isLoading, isError, refetch } = useQuery({

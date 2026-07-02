@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import { DatePicker, Table, type TableColumn, Button, useSlidePanel, ErrorState } from "../components/ui";
 import { FeeForm } from "../components/forms/FeeForm";
 import { FeeDetailPanel } from "../components/details/FeeDetailPanel";
@@ -23,7 +22,7 @@ import { toast } from "../stores/toastStore";
 import { zalo } from "../lib/zalo";
 import { format } from "date-fns";
 import { useAppStore } from "../stores/appStore";
-import { sortClasses } from "../lib/classUtils";
+import { useClassesList } from "../hooks/useClassesList";
 import type { TuitionFeeRow, ClassRow, GuardianRow, FeeStatus } from "../types";
 
 /** Fee row joined with student, class and guardian relations */
@@ -93,19 +92,7 @@ export function Finance() {
   }, [selectedAcademicYearId]);
 
   // 1. Fetch classes list for filter dropdown
-  const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list', selectedAcademicYearId],
-    queryFn: () => {
-      const filters: Record<string, string | number | boolean> = { is_active: true };
-      if (selectedAcademicYearId) {
-        filters.academic_year_id = selectedAcademicYearId;
-      }
-      return api.getAll<Pick<ClassRow, 'id' | 'name'>>('classes', { page: 1, pageSize: 100 }, { filters }, 'id, name');
-    },
-    enabled: !!selectedAcademicYearId
-  });
-  const rawClassesList = classesResponse?.data?.data || [];
-  const classesList = sortClasses(rawClassesList as any);
+  const { classesList } = useClassesList();
 
   // 2. Fetch tuition fees records
   const { data: feesResponse, isLoading, isError, refetch } = useQuery({
@@ -241,11 +228,10 @@ export function Finance() {
     queryFn: async () => {
       if (!selectedAcademicYearId) return [];
 
-      // supabase.rpc typing requires `as any` due to dynamic RPC function signatures
-      const { data, error } = await (supabase.rpc as any)('finance_monthly_summary', {
+      const { data, error } = await api.callRpc<any>('finance_monthly_summary', {
         p_academic_year_id: selectedAcademicYearId,
       });
-      if (error) throw error;
+      if (error) throw new Error(error);
 
       return ((data as Record<string, unknown>[]) || []).map((row) => ({
         month: `Tháng ${row.month}`,

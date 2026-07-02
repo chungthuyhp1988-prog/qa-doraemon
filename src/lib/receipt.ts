@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 
 export interface ReceiptData {
   receipt_number: string;
@@ -43,8 +43,8 @@ export interface ReceiptData {
 }
 
 export async function fetchReceipt(feeId: string): Promise<ReceiptData> {
-  const { data, error } = await (supabase.rpc as any)('generate_receipt', { p_fee_id: feeId });
-  if (error) throw new Error(error.message);
+  const { data, error } = await api.callRpc<any>('generate_receipt', { p_fee_id: feeId });
+  if (error) throw new Error(error);
   return data as unknown as ReceiptData;
 }
 

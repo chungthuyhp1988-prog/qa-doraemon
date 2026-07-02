@@ -19,14 +19,12 @@ import { useSlidePanel, ErrorState, ConfirmDialog } from "../components/ui";
 import { MealPlanForm } from "../components/forms/MealPlanForm";
 import { MealPlanDetailPanel } from "../components/details/MealPlanDetailPanel";
 import { useAuthStore } from "../stores/authStore";
-import { useAppStore } from "../stores/appStore";
-import { sortClasses } from "../lib/classUtils";
+import { useClassesList } from "../hooks/useClassesList";
 
 export function Nutrition() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const isPrivileged = user?.role === 'admin' || user?.role === 'teacher';
-  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
   const { openPanel } = useSlidePanel();
 
   // States
@@ -36,16 +34,7 @@ export function Nutrition() {
   const [showCloneConfirm, setShowCloneConfirm] = useState(false);
 
   // 1. Fetch classes for creation form & filter
-  const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list-nutrition', selectedAcademicYearId],
-    queryFn: () => {
-      if (!selectedAcademicYearId) return { data: { data: [], count: 0 }, error: null, count: 0 };
-      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters: { academic_year_id: selectedAcademicYearId } });
-    },
-    enabled: !!selectedAcademicYearId
-  });
-  const rawClassesList = classesResponse?.data?.data || [];
-  const classesList = sortClasses(rawClassesList);
+  const { classesList } = useClassesList();
 
   // Helper: Get Monday of the week for currentDate
   const getMonday = (d: Date) => {

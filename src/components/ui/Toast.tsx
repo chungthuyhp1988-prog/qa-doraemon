@@ -43,7 +43,7 @@ export const Toast: React.FC<ToastItem> = ({ id, message, type, description }) =
       <button
         onClick={() => removeToast(id)}
         className="text-on-surface-variant hover:text-on-surface transition-colors rounded-lg p-0.5 self-start hover:bg-surface-container cursor-pointer"
-        aria-label="Close"
+        aria-label="Đóng"
       >
         <X className="w-4 h-4" />
       </button>

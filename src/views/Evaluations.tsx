@@ -12,13 +12,11 @@ import { api } from "../lib/api";
 import { useSlidePanel, Table, type TableColumn, ErrorState } from "../components/ui";
 import { EvaluationForm } from "../components/forms/EvaluationForm";
 import { EvaluationDetailPanel } from "../components/details/EvaluationDetailPanel";
-import { useAppStore } from "../stores/appStore";
 
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
-import { sortClasses } from "../lib/classUtils";
+import { useClassesList } from "../hooks/useClassesList";
 
 export function Evaluations() {
-  const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
   const { openPanel } = useSlidePanel();
 
   // Filters state
@@ -27,16 +25,7 @@ export function Evaluations() {
   const debouncedSearch = useDebouncedValue(search, 300);
 
   // 1. Fetch classes for filtering
-  const { data: classesResponse } = useQuery({
-    queryKey: ['classes-list-evals', selectedAcademicYearId],
-    queryFn: () => {
-      if (!selectedAcademicYearId) return { data: { data: [], count: 0 }, error: null, count: 0 };
-      return api.getAll<any>('classes', { page: 1, pageSize: 100 }, { filters: { academic_year_id: selectedAcademicYearId } });
-    },
-    enabled: !!selectedAcademicYearId
-  });
-  const rawClassesList = classesResponse?.data?.data || [];
-  const classesList = sortClasses(rawClassesList);
+  const { classesList } = useClassesList();
 
   // Set default selected class filter
   useEffect(() => {

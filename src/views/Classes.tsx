@@ -23,6 +23,7 @@ import { ClassDetailPanel } from "../components/details/ClassDetailPanel";
 import { useAppStore } from "../stores/appStore";
 import type { ClassRow, AcademicYearRow, UserRow, ClassTeacherRow } from "../types";
 import { sortClasses } from "../lib/classUtils";
+import { queryKeys } from "../lib/queryKeys";
 
 /** ClassRow extended with joined relations from the API select query */
 interface ClassWithRelations extends ClassRow {
@@ -62,7 +63,7 @@ export function Classes() {
 
   // 3. Fetch all classes in selected academic year
   const { data: classesResponse, isLoading: isLoadingClasses, isError: isErrorClasses, refetch: refetchClasses } = useQuery({
-    queryKey: ['classes-list', selectedAcademicYearId],
+    queryKey: queryKeys.classes.list(selectedAcademicYearId || undefined),
     queryFn: () => {
       if (!selectedAcademicYearId) {
         return { data: { data: [], count: 0 }, error: null, count: 0 };
@@ -93,7 +94,7 @@ export function Classes() {
       if (res.error) throw new Error(res.error);
       
       toast.success('Xóa lớp học thành công!');
-      queryClient.invalidateQueries({ queryKey: ['classes-list'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
       setIsDeleteDialogOpen(false);
     } catch (err) {
       toast.error('Lỗi khi xóa lớp học', err instanceof Error ? err.message : 'Lỗi hệ thống');

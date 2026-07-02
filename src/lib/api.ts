@@ -358,6 +358,20 @@ async function exists(table: TableName, id: string): Promise<boolean> {
   return (c ?? 0) > 0;
 }
 
+/**
+ * Call a Supabase Stored Procedure (RPC).
+ * 
+ * @param fn   - Database function name.
+ * @param args - Object mapping argument names to values.
+ */
+async function callRpc<T = any>(fn: string, args?: Record<string, any>): Promise<ApiResponse<T>> {
+  const { data, error } = await (supabase.rpc as any)(fn, args);
+  if (error) {
+    return { data: null, error: error.message, count: null };
+  }
+  return { data: data as T, error: null, count: Array.isArray(data) ? data.length : null };
+}
+
 // ─────────────────────────────────────────────
 // Public API object
 // ─────────────────────────────────────────────
@@ -381,6 +395,7 @@ export const api = {
   softDelete,
   count,
   exists,
+  callRpc,
 } as const;
 
 export default api;

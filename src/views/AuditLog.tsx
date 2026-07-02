@@ -10,7 +10,7 @@ import {
   Database,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import { formatDate } from "../lib/formatters";
 import { Button, Badge, Select, Skeleton, Pagination } from "../components/ui";
 
@@ -65,13 +65,13 @@ export function AuditLog() {
   const { data, isLoading } = useQuery({
     queryKey: ["audit-log", filterTable, page],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)("get_audit_log", {
+      const { data, error } = await api.callRpc<any>("get_audit_log", {
         p_table_name: filterTable || null,
         p_user_id: null,
         p_limit: PAGE_SIZE,
         p_offset: (page - 1) * PAGE_SIZE,
       });
-      if (error) throw error;
+      if (error) throw new Error(error);
       return data as { data: AuditEntry[]; total: number };
     },
   });
