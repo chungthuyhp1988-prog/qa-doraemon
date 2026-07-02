@@ -1061,22 +1061,6 @@ export function Students() {
           </select>
         )}
 
-        {/* Priority Filter - Only visible for Waiting, Future and Registered tabs */}
-        {(selectedStatus === 'waiting' || selectedStatus === 'future' || selectedStatus === 'registered') && (
-          <select 
-            value={selectedPriority}
-            onChange={(e) => setSelectedPriority(e.target.value)}
-            className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
-          >
-            <option value="all">Tất cả các đối tượng</option>
-            <option value="Con GVNV">Ưu tiên 1 (Con GVNV)</option>
-            <option value="Anh chị đang học ở trường">Ưu tiên 2 (Anh chị đang học ở trường)</option>
-            <option value="HĐQT">Ưu tiên 3 (HĐQT)</option>
-            <option value="Phụ huynh cũ">Ưu tiên 4 (Phụ huynh cũ)</option>
-            <option value="none">Không ưu tiên</option>
-          </select>
-        )}
-
         {/* Birth Year / Age Filter */}
         {availableBirthYears.length > 0 && (
           <select 
@@ -1093,6 +1077,22 @@ export function Students() {
                 </option>
               );
             })}
+          </select>
+        )}
+
+        {/* Priority Filter - Only visible for Waiting, Future and Registered tabs */}
+        {(selectedStatus === 'waiting' || selectedStatus === 'future' || selectedStatus === 'registered') && (
+          <select 
+            value={selectedPriority}
+            onChange={(e) => setSelectedPriority(e.target.value)}
+            className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+          >
+            <option value="all">Tất cả các đối tượng</option>
+            <option value="Con GVNV">Ưu tiên 1 (Con GVNV)</option>
+            <option value="Anh chị đang học ở trường">Ưu tiên 2 (Anh chị đang học ở trường)</option>
+            <option value="HĐQT">Ưu tiên 3 (HĐQT)</option>
+            <option value="Phụ huynh cũ">Ưu tiên 4 (Phụ huynh cũ)</option>
+            <option value="none">Không ưu tiên</option>
           </select>
         )}
 
