@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   Plus,
@@ -72,6 +72,7 @@ export function Students() {
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [selectedPriority, setSelectedPriority] = useState<string>("all");
+  const [selectedBirthYear, setSelectedBirthYear] = useState<string>("all");
   const [pageSize, setPageSize] = useState(25);
   
   // Selection state for Bulk Actions
@@ -91,6 +92,7 @@ export function Students() {
   useEffect(() => {
     setSelectedKeys(new Set());
     setSelectedPriority("all");
+    setSelectedBirthYear("all");
   }, [selectedStatus, selectedClassId]);
 
   // Debounce search term
@@ -142,6 +144,58 @@ export function Students() {
     return a.name.localeCompare(b.name, 'vi', { numeric: true });
   });
 
+  // Fetch counts for all student statuses (for tab labels)
+  const { data: tabCounts } = useQuery({
+    queryKey: ['students-list-counts', selectedAcademicYearId],
+    queryFn: async () => {
+      const { count: active } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active');
+
+      const { count: registered } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'registered');
+
+      const { data: waitingStudents } = await supabase
+        .from('students')
+        .select('date_of_birth, target_school_year')
+        .eq('status', 'waiting');
+
+      let waitingCount = 0;
+      let futureCount = 0;
+
+      if (waitingStudents) {
+        waitingStudents.forEach((student: any) => {
+          if (!student.date_of_birth) {
+            waitingCount++;
+            return;
+          }
+          const birthYear = new Date(student.date_of_birth).getFullYear();
+          const isFutureYear = birthYear === 2025 || student.target_school_year === '2027-2028';
+          if (isFutureYear) {
+            futureCount++;
+          } else if (birthYear === 2023 || birthYear === 2024) {
+            waitingCount++;
+          } else {
+            waitingCount++;
+          }
+        });
+      }
+
+      return {
+        active: active ?? 0,
+        registered: registered ?? 0,
+        waiting: waitingCount,
+        future: futureCount
+      };
+    },
+    enabled: !!selectedAcademicYearId
+  });
+
+  const counts = tabCounts ?? { active: 0, registered: 0, waiting: 0, future: 0 };
+
   // 2. Fetch students list based on search, filters and page size
   const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['students-list', selectedAcademicYearId, debouncedSearch, selectedClassId, selectedStatus, pageSize],
@@ -183,7 +237,30 @@ export function Students() {
     placeholderData: keepPreviousData
   });
 
+  const handleRefreshData = () => {
+    refetch();
+    queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
+  };
+
   const rawStudentsData: StudentWithRelations[] = studentsResponse?.data?.data ?? [];
+
+  // Extract unique birth years from raw student data for the birth year filter dropdown
+  const availableBirthYears = useMemo(() => {
+    const yearsSet = new Set<number>();
+    rawStudentsData.forEach(student => {
+      if (student.date_of_birth) {
+        try {
+          const year = new Date(student.date_of_birth).getFullYear();
+          if (year >= 2018 && year <= 2027) {
+            yearsSet.add(year);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    });
+    return Array.from(yearsSet).sort((a, b) => b - a); // Sort descending (newest to oldest)
+  }, [rawStudentsData]);
 
   // Client-side filtering for waiting and future lists based on birth year
   // Client-side filtering for waiting and future lists based on birth year and priority status
@@ -208,6 +285,17 @@ export function Students() {
         if (priorityVal !== "") return false;
       } else {
         if (priorityVal !== selectedPriority) return false;
+      }
+    }
+
+    // 3. Filter by birth year (Độ tuổi)
+    if (selectedBirthYear !== "all") {
+      if (!student.date_of_birth) return false;
+      try {
+        const birthYear = new Date(student.date_of_birth).getFullYear();
+        if (birthYear !== parseInt(selectedBirthYear)) return false;
+      } catch {
+        return false;
       }
     }
 
@@ -296,6 +384,7 @@ export function Students() {
       toast.success(`Đã chuyển trạng thái thành công cho ${ids.length} học sinh sang "${statusLabel}"!`);
       setSelectedKeys(new Set());
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : "Lỗi hệ thống";
@@ -329,6 +418,7 @@ export function Students() {
       toast.success(`Đã xếp lớp thành công cho ${ids.length} học sinh vào lớp "${className}"!`);
       setSelectedKeys(new Set());
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : "Lỗi hệ thống";
@@ -347,6 +437,7 @@ export function Students() {
     setSelectedClassId("all");
     setSelectedStatus("active");
     setSelectedPriority("all");
+    setSelectedBirthYear("all");
     setPageSize(25);
   };
 
@@ -621,6 +712,7 @@ export function Students() {
 
     // Refresh query
     queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    queryClient.invalidateQueries({ queryKey: ['students-list-counts'] });
     queryClient.invalidateQueries({ queryKey: ['classes-list'] });
 
     return { successCount, errorCount, errors };
@@ -635,7 +727,7 @@ export function Students() {
         <StudentDetailPanel 
           studentId={studentId} 
           classesList={classesList}
-          onDeleteSuccess={() => refetch()}
+          onDeleteSuccess={handleRefreshData}
         />
       )
     });
@@ -649,7 +741,7 @@ export function Students() {
       component: (
         <StudentForm 
           classesList={classesList}
-          onSuccess={() => refetch()}
+          onSuccess={handleRefreshData}
         />
       )
     });
@@ -913,12 +1005,10 @@ export function Students() {
       {/* Navigation Tabs for Categories */}
       <div className="flex border-b border-outline-variant/30 overflow-x-auto gap-1 scrollbar-none mb-2 bg-surface-container-lowest p-1 rounded-xl">
         {[
-          { value: 'active', label: 'Đang học' },
-          { value: 'registered', label: 'Đã ghi danh' },
-          { value: 'waiting', label: 'Danh sách chờ' },
-          { value: 'graduated', label: 'Đã tốt nghiệp' },
-          { value: 'transferred', label: 'Đã chuyển trường' },
-          { value: 'future', label: 'Đăng ký năm tới' }
+          { value: 'active', label: `Đang học (${counts.active})` },
+          { value: 'registered', label: `Đã ghi danh (${counts.registered})` },
+          { value: 'waiting', label: `Danh sách chờ (${counts.waiting})` },
+          { value: 'future', label: `Đăng ký năm tới (${counts.future})` }
         ].map(tab => (
           <button
             key={tab.value}
@@ -984,6 +1074,25 @@ export function Students() {
             <option value="HĐQT">Ưu tiên 3 (HĐQT)</option>
             <option value="Phụ huynh cũ">Ưu tiên 4 (Phụ huynh cũ)</option>
             <option value="none">Không ưu tiên</option>
+          </select>
+        )}
+
+        {/* Birth Year / Age Filter */}
+        {availableBirthYears.length > 0 && (
+          <select 
+            value={selectedBirthYear}
+            onChange={(e) => setSelectedBirthYear(e.target.value)}
+            className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+          >
+            <option value="all">Tất cả độ tuổi</option>
+            {availableBirthYears.map((year) => {
+              const age = new Date().getFullYear() - year;
+              return (
+                <option key={year} value={year}>
+                  {year} ({age} tuổi)
+                </option>
+              );
+            })}
           </select>
         )}
 
