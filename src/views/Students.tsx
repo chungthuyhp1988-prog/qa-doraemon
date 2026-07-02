@@ -23,6 +23,7 @@ import { exportToExcel, parseExcelDate, parseGender } from "../lib/excelHelper";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
 import { toast } from "../stores/toastStore";
+import { sortClasses } from "../lib/classUtils";
 import type { StudentRow, StudentStatus, GuardianRow, GuardianInsert, ClassRow, GradeLevel } from "../types";
 
 // ── Local composite types for joined queries ──────────────────────────
@@ -125,24 +126,7 @@ export function Students() {
     enabled: !!selectedAcademicYearId
   });
   const classesList: ClassListItem[] = classesResponse?.data?.data ?? [];
-
-  // Helper to get group name priority (Dorami = 1, Shizuka = 2, Nobita = 3, Doraemon = 4, Khác = 5)
-  const getClassPriority = (className: string): number => {
-    const nameLower = (className || '').toLowerCase();
-    if (nameLower.includes('dorami')) return 1;
-    if (nameLower.includes('shizuka')) return 2;
-    if (nameLower.includes('nobita')) return 3;
-    if (nameLower.includes('doraemon')) return 4;
-    return 5;
-  };
-
-  // List of all classes sorted by Dorami -> Shizuka -> Nobita -> Doraemon
-  const filteredClassesList = [...classesList].sort((a, b) => {
-    const priA = getClassPriority(a.name);
-    const priB = getClassPriority(b.name);
-    if (priA !== priB) return priA - priB;
-    return a.name.localeCompare(b.name, 'vi', { numeric: true });
-  });
+  const filteredClassesList = sortClasses(classesList);
 
   // Fetch counts for all student statuses (for tab labels)
   const { data: tabCounts } = useQuery({

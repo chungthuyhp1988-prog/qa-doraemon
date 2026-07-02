@@ -23,6 +23,7 @@ import { toast } from "../stores/toastStore";
 import { zalo } from "../lib/zalo";
 import { format } from "date-fns";
 import { useAppStore } from "../stores/appStore";
+import { sortClasses } from "../lib/classUtils";
 import type { TuitionFeeRow, ClassRow, GuardianRow, FeeStatus } from "../types";
 
 /** Fee row joined with student, class and guardian relations */
@@ -104,23 +105,7 @@ export function Finance() {
     enabled: !!selectedAcademicYearId
   });
   const rawClassesList = classesResponse?.data?.data || [];
-
-  // Helper to get group name priority (Dorami = 1, Shizuka = 2, Nobita = 3, Doraemon = 4, Khác = 5)
-  const getClassPriority = (className: string): number => {
-    const nameLower = (className || '').toLowerCase();
-    if (nameLower.includes('dorami')) return 1;
-    if (nameLower.includes('shizuka')) return 2;
-    if (nameLower.includes('nobita')) return 3;
-    if (nameLower.includes('doraemon')) return 4;
-    return 5;
-  };
-
-  const classesList = [...rawClassesList].sort((a, b) => {
-    const priA = getClassPriority(a.name);
-    const priB = getClassPriority(b.name);
-    if (priA !== priB) return priA - priB;
-    return a.name.localeCompare(b.name, 'vi', { numeric: true });
-  });
+  const classesList = sortClasses(rawClassesList as any);
 
   // 2. Fetch tuition fees records
   const { data: feesResponse, isLoading, isError, refetch } = useQuery({

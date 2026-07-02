@@ -14,6 +14,9 @@ import { EvaluationForm } from "../components/forms/EvaluationForm";
 import { EvaluationDetailPanel } from "../components/details/EvaluationDetailPanel";
 import { useAppStore } from "../stores/appStore";
 
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { sortClasses } from "../lib/classUtils";
+
 export function Evaluations() {
   const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
   const { openPanel } = useSlidePanel();
@@ -21,6 +24,7 @@ export function Evaluations() {
   // Filters state
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // 1. Fetch classes for filtering
   const { data: classesResponse } = useQuery({
@@ -32,23 +36,7 @@ export function Evaluations() {
     enabled: !!selectedAcademicYearId
   });
   const rawClassesList = classesResponse?.data?.data || [];
-
-  // Helper to get group name priority (Dorami = 1, Shizuka = 2, Nobita = 3, Doraemon = 4, Khác = 5)
-  const getClassPriority = (className: string): number => {
-    const nameLower = (className || '').toLowerCase();
-    if (nameLower.includes('dorami')) return 1;
-    if (nameLower.includes('shizuka')) return 2;
-    if (nameLower.includes('nobita')) return 3;
-    if (nameLower.includes('doraemon')) return 4;
-    return 5;
-  };
-
-  const classesList = [...rawClassesList].sort((a, b) => {
-    const priA = getClassPriority(a.name);
-    const priB = getClassPriority(b.name);
-    if (priA !== priB) return priA - priB;
-    return a.name.localeCompare(b.name, 'vi', { numeric: true });
-  });
+  const classesList = sortClasses(rawClassesList);
 
   // Set default selected class filter
   useEffect(() => {
@@ -59,7 +47,7 @@ export function Evaluations() {
 
   // 2. Fetch students list with class details and their latest evaluation
   const { data: studentsResponse, isLoading: isLoadingStudents, isError: isErrorStudents, refetch: refetchStudents } = useQuery({
-    queryKey: ['evals-students-list-full', selectedClassId, search],
+    queryKey: ['evals-students-list-full', selectedClassId, debouncedSearch],
     queryFn: async () => {
       const filters: Record<string, any> = { status: 'active' };
       if (selectedClassId !== "all") {
@@ -70,7 +58,7 @@ export function Evaluations() {
         'students', 
         { page: 1, pageSize: 200, sortBy: 'full_name', sortOrder: 'asc' },
         { 
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           filters: Object.keys(filters).length > 0 ? filters : undefined
         },
         '*, classes(name)'

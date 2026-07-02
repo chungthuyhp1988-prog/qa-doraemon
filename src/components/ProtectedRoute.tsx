@@ -30,7 +30,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
         if (session?.user) {
           // Fetch profile if we don't have user data
-          if (!user) {
+          const currentUser = useAuthStore.getState().user;
+          if (!currentUser) {
             const { data: profile } = (await supabase
               .from('users')
               .select('*')
@@ -82,6 +83,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         setLoading(false);
       } else if (event === 'SIGNED_IN' && session) {
         setAccessToken(session.access_token);
+        checkSession();
       } else if (event === 'TOKEN_REFRESHED' && session) {
         setAccessToken(session.access_token);
       }
@@ -90,7 +92,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return () => {
       subscription.unsubscribe();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setUser, setAccessToken, setLoading]);
 
   // Show loading spinner while checking auth state
   if (isLoading) {

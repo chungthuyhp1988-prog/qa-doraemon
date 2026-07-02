@@ -24,7 +24,7 @@ export const Tabs: React.FC<TabsProps> = ({
 }) => {
   return (
     <div className={cn("flex border-b border-outline-variant/50 select-none", className)}>
-      <nav className="flex gap-6 -mb-px" aria-label="Tabs">
+      <div className="flex gap-6 -mb-px" role="tablist" aria-label="Tabs">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTab;
           
@@ -32,6 +32,8 @@ export const Tabs: React.FC<TabsProps> = ({
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => onChange(tab.id)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer",
@@ -49,6 +51,8 @@ export const Tabs: React.FC<TabsProps> = ({
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onChange(tab.id)}
               className={cn(
                 "relative flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition-all cursor-pointer",
@@ -65,7 +69,7 @@ export const Tabs: React.FC<TabsProps> = ({
             </button>
           );
         })}
-      </nav>
+      </div>
     </div>
   );
 };

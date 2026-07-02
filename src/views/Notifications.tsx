@@ -29,6 +29,10 @@ interface NotificationWithUser extends NotificationRow {
   users?: { full_name: string; role: string } | null;
 }
 
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { supabase } from "../lib/supabase";
+import { sortClasses } from "../lib/classUtils";
+
 export function Notifications() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
@@ -44,6 +48,7 @@ export function Notifications() {
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all"); // all, read, unread
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const selectedAcademicYearId = useAppStore((state) => state.selectedAcademicYearId);
 
@@ -59,27 +64,11 @@ export function Notifications() {
     }
   });
   const rawClassesList = classesResponse?.data?.data || [];
-
-  // Helper to get group name priority (Dorami = 1, Shizuka = 2, Nobita = 3, Doraemon = 4, Khác = 5)
-  const getClassPriority = (className: string): number => {
-    const nameLower = (className || '').toLowerCase();
-    if (nameLower.includes('dorami')) return 1;
-    if (nameLower.includes('shizuka')) return 2;
-    if (nameLower.includes('nobita')) return 3;
-    if (nameLower.includes('doraemon')) return 4;
-    return 5;
-  };
-
-  const classesList = [...rawClassesList].sort((a, b) => {
-    const priA = getClassPriority(a.name);
-    const priB = getClassPriority(b.name);
-    if (priA !== priB) return priA - priB;
-    return a.name.localeCompare(b.name, 'vi', { numeric: true });
-  });
+  const classesList = sortClasses(rawClassesList);
 
   // 2. Fetch notifications list
   const { data: notificationsResponse, isLoading, isError, refetch } = useQuery({
-    queryKey: ['notifications-list', selectedType, selectedStatus, search],
+    queryKey: ['notifications-list', selectedType, selectedStatus, debouncedSearch],
     queryFn: () => {
       const filters: Record<string, string | number | boolean | null> = {};
 
@@ -95,7 +84,7 @@ export function Notifications() {
         'notifications',
         { page: 1, pageSize: 100, sortBy: 'sent_at', sortOrder: 'desc' },
         { 
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           filters: Object.keys(filters).length > 0 ? filters : undefined
         },
         '*, users:created_by(full_name, role)'
@@ -122,14 +111,19 @@ export function Notifications() {
     const unread = notifications.filter(n => !n.is_read);
     if (unread.length === 0) return;
     
+    const unreadIds = unread.map(n => n.id);
+    
     try {
       toast.info('Đang xử lý...');
-      for (const notif of unread) {
-        await api.update('notifications', notif.id, {
+      const { error } = await (supabase.from('notifications') as any)
+        .update({
           is_read: true,
           updated_at: new Date().toISOString()
-        });
-      }
+        })
+        .in('id', unreadIds);
+
+      if (error) throw error;
+
       toast.success('Đã đánh dấu tất cả thông báo là đã đọc!');
       queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
     } catch (err: any) {

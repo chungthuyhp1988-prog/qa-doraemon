@@ -52,7 +52,6 @@ export const Switch: React.FC<SwitchProps> = ({
             "text-sm font-medium text-on-surface cursor-pointer",
             disabled && "opacity-50 cursor-not-allowed"
           )}
-          onClick={handleToggle}
         >
           {label}
         </label>
