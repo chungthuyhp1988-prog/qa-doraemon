@@ -141,10 +141,8 @@ export function Students() {
         filters.class_id = selectedClassId;
       }
 
-      let apiPageSize = pageSize;
-      if (selectedStatus === 'waiting' || selectedStatus === 'future') {
-        apiPageSize = 1000;
-      }
+      // Load all students (up to 1000) at once to perform accurate client-side Vietnamese alphabet sorting on the entire dataset
+      const apiPageSize = 1000;
 
       const isWaitingOrFuture = selectedStatus === 'waiting' || selectedStatus === 'future';
 
