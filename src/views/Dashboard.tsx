@@ -136,9 +136,9 @@ export function Dashboard() {
   ];
 
   const chartBars = [
+    { label: "Dorami", value: gradeCounts.dorami.total, percent: yMax > 0 ? Math.round((gradeCounts.dorami.total / yMax) * 100) : 0 },
     { label: "Shizuka", value: gradeCounts.shizuka.total, percent: yMax > 0 ? Math.round((gradeCounts.shizuka.total / yMax) * 100) : 0 },
     { label: "Nobita", value: gradeCounts.nobita.total, percent: yMax > 0 ? Math.round((gradeCounts.nobita.total / yMax) * 100) : 0 },
-    { label: "Dorami", value: gradeCounts.dorami.total, percent: yMax > 0 ? Math.round((gradeCounts.dorami.total / yMax) * 100) : 0 },
     { label: "Doraemon", value: gradeCounts.doraemon.total, percent: yMax > 0 ? Math.round((gradeCounts.doraemon.total / yMax) * 100) : 0 }
   ];
 
@@ -362,9 +362,9 @@ export function Dashboard() {
               </thead>
               <tbody className="divide-y divide-outline-variant/20">
                 {[
+                  { key: 'dorami', name: 'Dorami' },
                   { key: 'shizuka', name: 'Shizuka' },
                   { key: 'nobita', name: 'Nobita' },
-                  { key: 'dorami', name: 'Dorami' },
                   { key: 'doraemon', name: 'Doraemon' }
                 ].map((item) => {
                   const data = gradeCounts[item.key as keyof typeof gradeCounts] || { total: 0, male: 0, female: 0 };
