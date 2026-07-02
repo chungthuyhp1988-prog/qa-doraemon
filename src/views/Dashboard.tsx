@@ -195,8 +195,8 @@ export function Dashboard() {
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-5 w-48" />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-8">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="col-span-1">
               <Skeleton className="h-32 rounded-2xl" />
             </div>
@@ -227,7 +227,7 @@ export function Dashboard() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Card 1: Active */}
         <div className="col-span-1 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[120px]">
           <div className="flex justify-between items-start">
@@ -307,26 +307,6 @@ export function Dashboard() {
             <span className="text-emerald-650 font-extrabold">Tuyển sinh mới</span>
           </div>
         </div>
-
-        {/* Card 5: Graduated */}
-        <div className="col-span-1 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[120px]">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-wider font-extrabold text-on-surface-variant">Đã tốt nghiệp</p>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-[24px] font-extrabold tracking-tight text-slate-600">{counts.graduated}</span>
-                <span className="text-[11px] text-on-surface-variant font-semibold"> trẻ</span>
-              </div>
-            </div>
-            <div className="w-8.5 h-8.5 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-600 shrink-0">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[11px]">
-            <span className="text-on-surface-variant font-medium">Trạng thái</span>
-            <span className="text-slate-600 font-extrabold">Ra trường</span>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-12 gap-6">
@@ -373,7 +353,7 @@ export function Dashboard() {
                     </span>
                   )}
 
-                  <div className="absolute bottom-full mb-5 left-1/2 -translate-x-1/2 bg-slate-900/90 dark:bg-slate-105 text-white dark:text-slate-900 backdrop-blur-md text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none shadow-md whitespace-nowrap z-25">
+                  <div className="absolute bottom-full mb-5 left-1/2 -translate-x-1/2 bg-slate-900/95 dark:bg-slate-100 !text-white dark:!text-slate-900 backdrop-blur-md text-[10px] font-extrabold px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none shadow-md whitespace-nowrap z-25">
                     Sĩ số: {bar.value} trẻ
                   </div>
                 </div>
