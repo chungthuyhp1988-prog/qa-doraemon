@@ -169,6 +169,16 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
     }
   };
 
+  const formatEnrollmentDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    try {
+      const date = new Date(dateStr);
+      return `Tháng ${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   if (isLoadingStudent) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-20 animate-pulse space-y-4">
@@ -318,8 +328,8 @@ export const StudentDetailPanel: React.FC<StudentDetailPanelProps> = ({
                   <div className="text-on-surface font-semibold leading-relaxed">{student.address || 'Chưa cập nhật'}</div>
                 </div>
                 <div>
-                  <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">Ngày nhập học</div>
-                  <div className="text-on-surface font-semibold">{formatDate(student.enrollment_date)}</div>
+                  <div className="text-on-surface-variant/80 text-[11px] font-bold uppercase tracking-wider mb-0.5">Tháng nhập học dự kiến</div>
+                  <div className="text-on-surface font-semibold">{formatEnrollmentDate(student.enrollment_date)}</div>
                 </div>
                 {(student.status === 'waiting' || student.status === 'registered') && (
                   <>

@@ -64,8 +64,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({
   const { closePanel } = useSlidePanel();
   const queryClient = useQueryClient();
   const schoolId = useAuthStore((state) => state.user?.school_id) || '00000000-0000-0000-0000-000000000001';
-  
-  const [activeTab, setActiveTab] = useState<'info' | 'guardians'>('info');
   const [loading, setLoading] = useState(false);
 
   // Map initial values
@@ -76,7 +74,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
     gender: student?.gender || 'male',
     class_id: student?.class_id || '',
     address: student?.address || '',
-    enrollment_date: student?.enrollment_date ? student.enrollment_date.split('T')[0] : new Date().toISOString().split('T')[0],
+    enrollment_date: student?.enrollment_date ? student.enrollment_date.substring(0, 7) : new Date().toISOString().substring(0, 7),
     status: student?.status === 'waiting' && student?.target_school_year === '2027-2028' ? 'future' : (student?.status || 'active'),
     profile_image_url: student?.profile_image_url || '',
     medical_notes: student?.medical_notes || '',
@@ -133,6 +131,15 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         targetSchoolYearValue = null;
       }
 
+      let enrollmentDateVal = new Date().toISOString().split('T')[0];
+      if (values.enrollment_date) {
+        if (values.enrollment_date.includes('-') && values.enrollment_date.split('-').length === 2) {
+          enrollmentDateVal = `${values.enrollment_date}-01`;
+        } else {
+          enrollmentDateVal = values.enrollment_date;
+        }
+      }
+
       const studentPayload = {
         school_id: schoolId,
         full_name: values.full_name,
@@ -141,7 +148,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         gender: values.gender,
         class_id: values.class_id || null,
         address: values.address || null,
-        enrollment_date: values.enrollment_date || new Date().toISOString().split('T')[0],
+        enrollment_date: enrollmentDateVal,
         status: statusValue as any,
         profile_image_url: values.profile_image_url || null,
         medical_notes: values.medical_notes || null,
@@ -209,7 +216,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
           is_primary: g.is_primary,
         }));
 
-        const guardiansRes = await api.createMany('guardians', guardiansPayload);
+        const guardiansRes = await api.createMany('guardians', guardiansPayload as any[]);
         if (guardiansRes.error) throw new Error(guardiansRes.error);
 
         toast.success('Thêm học sinh mới thành công!');
@@ -236,342 +243,337 @@ export const StudentForm: React.FC<StudentFormProps> = ({
 
   return (
     <div className="flex flex-col gap-5 select-none h-full bg-surface p-6">
-        {/* Navigation Tabs inside Modal */}
-        <Tabs
-          tabs={[
-            { id: 'info', label: 'Thông tin trẻ', icon: <User className="w-4 h-4" /> },
-            { id: 'guardians', label: 'Thông tin phụ huynh', icon: <Phone className="w-4 h-4" /> },
-          ]}
-          activeTab={activeTab}
-          onChange={(id) => setActiveTab(id as any)}
-        />
-
-        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto pr-1">
-          {activeTab === 'info' && (
-            <div className="space-y-5 animate-fade-in">
-              {/* Profile Image & Basic Info */}
-              <div className="flex flex-col md:flex-row gap-5 items-start">
-                <div className="w-full md:w-1/3">
-                  <FileUpload
-                    bucket="avatars"
-                    folderPath="students"
-                    label="Ảnh đại diện"
-                    value={profileImageUrl || ''}
-                    onChange={(url) => setValue('profile_image_url', url)}
-                    error={errors.profile_image_url?.message}
-                  />
-                </div>
-
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                  <Input
-                    label="Họ và tên trẻ"
-                    placeholder="Nhập họ tên đầy đủ..."
-                    error={errors.full_name?.message}
-                    {...register('full_name')}
-                  />
-
-                  <Input
-                    label="Mã học sinh"
-                    placeholder="HS123456..."
-                    error={errors.student_code?.message}
-                    {...register('student_code')}
-                  />
-
-                  <Input
-                    label="Ngày sinh"
-                    type="date"
-                    error={errors.date_of_birth?.message}
-                    {...register('date_of_birth')}
-                  />
-
-                  <Select
-                    label="Giới tính"
-                    options={[
-                      { value: 'male', label: 'Nam' },
-                      { value: 'female', label: 'Nữ' },
-                    ]}
-                    error={errors.gender?.message}
-                    {...register('gender')}
-                  />
-                </div>
-              </div>
-
-              {/* Class, enrollment, address */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Select
-                  label="Xếp lớp"
-                  options={[
-                    { value: '', label: 'Chưa xếp lớp' },
-                    ...classesList.map((c) => {
-                      const gradeLabels: Record<string, string> = {
-                        nha_tre: 'Nhà trẻ',
-                        mam: 'Mầm',
-                        choi: 'Chồi',
-                        la: 'Lá'
-                      };
-                      const gradeLabel = c.grade_level ? gradeLabels[c.grade_level] : null;
-                      return {
-                        value: c.id,
-                        label: gradeLabel ? `${c.name} (${gradeLabel})` : c.name,
-                      };
-                    }),
-                  ]}
-                  error={errors.class_id?.message}
-                  {...register('class_id')}
-                />
-
-                <Input
-                  label="Ngày nhập học"
-                  type="date"
-                  error={errors.enrollment_date?.message}
-                  {...register('enrollment_date')}
-                />
-
-                <Select
-                  label="Trạng thái học sinh"
-                  options={[
-                    { value: 'active', label: 'Đang học' },
-                    { value: 'registered', label: 'Đã ghi danh' },
-                    { value: 'waiting', label: 'Danh sách chờ' },
-                    { value: 'suspended', label: 'Tạm nghỉ' },
-                    { value: 'graduated', label: 'Đã tốt nghiệp' },
-                    { value: 'transferred', label: 'Đã chuyển trường' },
-                  ]}
-                  error={errors.status?.message}
-                  {...register('status')}
-                />
-
-                {(() => {
-                  const currentStatus = watch('status');
-                  if (currentStatus === 'waiting' || currentStatus === 'future' || currentStatus === 'registered') {
-                    return (
-                      <>
-                        <Input
-                          type="date"
-                          label={currentStatus === 'registered' ? "Ngày ghi danh" : "Ngày đăng ký chờ"}
-                          error={errors.registration_date?.message}
-                          {...register('registration_date')}
-                        />
-                        <Input
-                          label="Năm học đăng ký"
-                          placeholder="Ví dụ: 2027-2028..."
-                          error={errors.target_school_year?.message}
-                          {...register('target_school_year')}
-                        />
-                        <div className="sm:col-span-2 space-y-2">
-                          <label className="text-[13px] font-extrabold text-on-surface-variant uppercase tracking-wider block">
-                            Đối tượng ưu tiên
-                          </label>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                            {[
-                              { value: '', label: 'Không ưu tiên' },
-                              { value: 'Con GVNV', label: 'Ưu tiên 1 (Con GVNV)' },
-                              { value: 'Anh chị đang học ở trường', label: 'Ưu tiên 2 (Anh chị đang học ở trường)' },
-                              { value: 'HĐQT', label: 'Ưu tiên 3 (HĐQT)' },
-                              { value: 'Phụ huynh cũ', label: 'Ưu tiên 4 (Phụ huynh cũ)' }
-                            ].map((opt) => {
-                              const isChecked = watch('priority_status') === opt.value || (!watch('priority_status') && opt.value === '');
-                              return (
-                                <label
-                                  key={opt.value}
-                                  className={cn(
-                                    "border rounded-xl p-2.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-surface-container select-none min-h-[54px]",
-                                    isChecked
-                                      ? "border-primary bg-primary/5 text-primary font-bold shadow-2xs"
-                                      : "border-outline-variant/60 text-on-surface-variant"
-                                  )}
-                                >
-                                  <input
-                                    type="radio"
-                                    value={opt.value}
-                                    className="sr-only"
-                                    {...register('priority_status')}
-                                  />
-                                  <span className="text-[12px] leading-tight">{opt.label}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                          {errors.priority_status?.message && (
-                            <p className="text-[11px] font-bold text-error mt-1">
-                              {errors.priority_status.message}
-                            </p>
-                          )}
-                        </div>
-                      </>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <div className={student ? "sm:col-span-1" : "sm:col-span-2"}>
-                  <Input
-                    label="Địa chỉ liên hệ"
-                    placeholder="Số nhà, đường, thôn/xóm, xã/phường, tỉnh..."
-                    error={errors.address?.message}
-                    {...register('address')}
-                  />
-                </div>
-              </div>
-
-              {/* Health Notes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Textarea
-                  label="Dị ứng thức ăn / thuốc"
-                  placeholder="Nhập thức ăn hoặc thành phần dị ứng nếu có..."
-                  error={errors.allergies?.message}
-                  {...register('allergies')}
-                />
-                
-                <Textarea
-                  label="Ghi chú y tế"
-                  placeholder="Tiền sử bệnh lý, lưu ý đặc biệt cho giáo viên chăm sóc..."
-                  error={errors.medical_notes?.message}
-                  {...register('medical_notes')}
-                />
-              </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto pr-1 space-y-6">
+        
+        {/* ── PHẦN 1: THÔNG TIN CỦA TRẺ ── */}
+        <div className="bg-white border border-outline-variant/30 rounded-2xl p-5 space-y-5">
+          <h4 className="text-sm font-extrabold text-primary uppercase tracking-wider border-b border-outline-variant/20 pb-2 mb-3">
+            1. Thông tin của trẻ
+          </h4>
+          
+          {/* Profile Image & Basic Info */}
+          <div className="flex flex-col md:flex-row gap-5 items-start">
+            <div className="w-full md:w-1/3">
+              <FileUpload
+                bucket="avatars"
+                folderPath="students"
+                label="Ảnh đại diện"
+                value={profileImageUrl || ''}
+                onChange={(url) => setValue('profile_image_url', url)}
+                error={errors.profile_image_url?.message}
+              />
             </div>
-          )}
 
-          {activeTab === 'guardians' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="flex justify-between items-center">
-                <h4 className="text-sm font-semibold text-on-surface">Danh sách người giám hộ</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ full_name: '', relationship: 'me', phone: '', email: '', occupation: '', is_primary: fields.length === 0 })}
-                  className="rounded-xl cursor-pointer text-xs"
-                  leftIcon={<Plus className="w-3.5 h-3.5" />}
-                >
-                  Thêm phụ huynh
-                </Button>
-              </div>
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+              <Input
+                label="Họ và tên trẻ"
+                placeholder="Nhập họ tên đầy đủ..."
+                error={errors.full_name?.message}
+                {...register('full_name')}
+              />
 
-              <div className="space-y-4 pr-1">
-                {fields.map((field, index) => {
-                  const isPrimary = watch(`guardians.${index}.is_primary`);
-                  
-                  return (
-                    <div 
-                      key={field.id}
-                      className="border border-outline-variant/40 rounded-2xl p-4 space-y-4 relative bg-surface-container-low/20"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-primary uppercase tracking-wider">Phụ huynh #{index + 1}</span>
-                        
-                        <div className="flex items-center gap-3">
-                          {/* Set Primary Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleSetPrimary(index)}
-                            className={cn(
-                              "flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer",
-                              isPrimary
-                                ? "bg-green-50 text-green-700 border-green-200"
-                                : "bg-transparent text-on-surface-variant hover:text-on-surface border-outline-variant"
-                            )}
-                          >
-                            <Check className="w-3 h-3" />
-                            {isPrimary ? 'Người nhận liên lạc chính' : 'Đặt làm người liên lạc chính'}
-                          </button>
+              <Input
+                label="Mã học sinh"
+                placeholder="HS123456..."
+                error={errors.student_code?.message}
+                {...register('student_code')}
+              />
 
-                          {/* Delete Button */}
-                          {fields.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => remove(index)}
-                              className="text-error hover:bg-error/5 p-1.5 rounded-xl transition-colors cursor-pointer"
-                              title="Xóa phụ huynh"
+              <Input
+                label="Ngày sinh"
+                type="date"
+                error={errors.date_of_birth?.message}
+                {...register('date_of_birth')}
+              />
+
+              <Select
+                label="Giới tính"
+                options={[
+                  { value: 'male', label: 'Nam' },
+                  { value: 'female', label: 'Nữ' },
+                ]}
+                error={errors.gender?.message}
+                {...register('gender')}
+              />
+            </div>
+          </div>
+
+          {/* Class, enrollment, address */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Xếp lớp"
+              options={[
+                { value: '', label: 'Chưa xếp lớp' },
+                ...classesList.map((c) => {
+                  const gradeLabels: Record<string, string> = {
+                    nha_tre: 'Nhà trẻ',
+                    mam: 'Mầm',
+                    choi: 'Chồi',
+                    la: 'Lá'
+                  };
+                  const gradeLabel = c.grade_level ? gradeLabels[c.grade_level] : null;
+                  return {
+                    value: c.id,
+                    label: gradeLabel ? `${c.name} (${gradeLabel})` : c.name,
+                  };
+                }),
+              ]}
+              error={errors.class_id?.message}
+              {...register('class_id')}
+            />
+
+            <Input
+              label="Tháng nhập học dự kiến"
+              type="month"
+              error={errors.enrollment_date?.message}
+              {...register('enrollment_date')}
+            />
+
+            <Select
+              label="Trạng thái học sinh"
+              options={[
+                { value: 'active', label: 'Đang học' },
+                { value: 'registered', label: 'Đã ghi danh' },
+                { value: 'waiting', label: 'Danh sách chờ' },
+                { value: 'suspended', label: 'Tạm nghỉ' },
+                { value: 'graduated', label: 'Đã tốt nghiệp' },
+                { value: 'transferred', label: 'Đã chuyển trường' },
+              ]}
+              error={errors.status?.message}
+              {...register('status')}
+            />
+
+            {(() => {
+              const currentStatus = watch('status');
+              if (currentStatus === 'waiting' || currentStatus === 'future' || currentStatus === 'registered') {
+                return (
+                  <>
+                    <Input
+                      type="date"
+                      label={currentStatus === 'registered' ? "Ngày ghi danh" : "Ngày đăng ký chờ"}
+                      error={errors.registration_date?.message}
+                      {...register('registration_date')}
+                    />
+                    <Input
+                      label="Năm học đăng ký"
+                      placeholder="Ví dụ: 2027-2028..."
+                      error={errors.target_school_year?.message}
+                      {...register('target_school_year')}
+                    />
+                    <div className="sm:col-span-2 space-y-2">
+                      <label className="text-[13px] font-extrabold text-on-surface-variant uppercase tracking-wider block">
+                        Đối tượng ưu tiên
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[
+                          { value: '', label: 'Không ưu tiên' },
+                          { value: 'Con GVNV', label: 'Ưu tiên 1 (Con GVNV)' },
+                          { value: 'Anh chị đang học ở trường', label: 'Ưu tiên 2 (Anh chị đang học ở trường)' },
+                          { value: 'HĐQT', label: 'Ưu tiên 3 (HĐQT)' },
+                          { value: 'Phụ huynh cũ', label: 'Ưu tiên 4 (Phụ huynh cũ)' }
+                        ].map((opt) => {
+                          const isChecked = watch('priority_status') === opt.value || (!watch('priority_status') && opt.value === '');
+                          return (
+                            <label
+                              key={opt.value}
+                              className={cn(
+                                "border rounded-xl p-2.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-surface-container select-none min-h-[54px]",
+                                isChecked
+                                  ? "border-primary bg-primary/5 text-primary font-bold shadow-2xs"
+                                  : "border-outline-variant/60 text-on-surface-variant"
+                              )}
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
+                              <input
+                                type="radio"
+                                value={opt.value}
+                                className="sr-only"
+                                {...register('priority_status')}
+                              />
+                              <span className="text-[12px] leading-tight">{opt.label}</span>
+                            </label>
+                          );
+                        })}
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input
-                          label="Họ và tên"
-                          placeholder="Nhập họ tên phụ huynh..."
-                          leftIcon={<User />}
-                          error={errors.guardians?.[index]?.full_name?.message}
-                          {...register(`guardians.${index}.full_name` as const)}
-                        />
-
-                        <Select
-                          label="Quan hệ với bé"
-                          options={[
-                            { value: 'cha', label: 'Bố' },
-                            { value: 'me', label: 'Mẹ' },
-                            { value: 'ong', label: 'Ông' },
-                            { value: 'ba', label: 'Bà' },
-                            { value: 'khac', label: 'Người giám hộ khác' },
-                          ]}
-                          error={errors.guardians?.[index]?.relationship?.message}
-                          {...register(`guardians.${index}.relationship` as const)}
-                        />
-
-                        <Input
-                          label="Số điện thoại"
-                          placeholder="09xxxxxxxx..."
-                          leftIcon={<Phone />}
-                          error={errors.guardians?.[index]?.phone?.message}
-                          {...register(`guardians.${index}.phone` as const)}
-                        />
-
-                        <Input
-                          label="Địa chỉ email"
-                          placeholder="parent@example.com..."
-                          leftIcon={<Mail />}
-                          error={errors.guardians?.[index]?.email?.message}
-                          {...register(`guardians.${index}.email` as const)}
-                        />
-
-                        <Input
-                          label="Nghề nghiệp"
-                          placeholder="Ví dụ: Công nhân, Giáo viên..."
-                          leftIcon={<Briefcase />}
-                          error={errors.guardians?.[index]?.occupation?.message}
-                          {...register(`guardians.${index}.occupation` as const)}
-                        />
-
-                        <Input
-                          label="Căn cước công dân (CCCD)"
-                          placeholder="Nhập số CCCD..."
-                          error={errors.guardians?.[index]?.citizen_id?.message}
-                          {...register(`guardians.${index}.citizen_id` as const)}
-                        />
-                      </div>
+                      {errors.priority_status?.message && (
+                        <p className="text-[11px] font-bold text-error mt-1">
+                          {errors.priority_status.message}
+                        </p>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                  </>
+                );
+              }
+              return null;
+            })()}
 
-          {/* Form Actions */}
-          <div className="flex justify-end gap-3 pt-6 border-t border-outline-variant/40 mt-6 shrink-0">
+            <div className={student ? "sm:col-span-1" : "sm:col-span-2"}>
+              <Input
+                label="Địa chỉ liên hệ"
+                placeholder="Số nhà, đường, thôn/xóm, xã/phường, tỉnh..."
+                error={errors.address?.message}
+                {...register('address')}
+              />
+            </div>
+          </div>
+
+          {/* Health Notes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Textarea
+              label="Dị ứng thức ăn / thuốc"
+              placeholder="Nhập thức ăn hoặc thành phần dị ứng nếu có..."
+              error={errors.allergies?.message}
+              {...register('allergies')}
+            />
+            
+            <Textarea
+              label="Ghi chú y tế"
+              placeholder="Tiền sử bệnh lý, lưu ý đặc biệt cho giáo viên chăm sóc..."
+              error={errors.medical_notes?.message}
+              {...register('medical_notes')}
+            />
+          </div>
+        </div>
+
+        {/* ── PHẦN 2: THÔNG TIN PHỤ HUYNH / NGƯỜI GIÁM HỘ ── */}
+        <div className="bg-white border border-outline-variant/30 rounded-2xl p-5 space-y-5">
+          <div className="flex justify-between items-center border-b border-outline-variant/20 pb-2 mb-3">
+            <h4 className="text-sm font-extrabold text-primary uppercase tracking-wider">
+              2. Thông tin phụ huynh / Người giám hộ
+            </h4>
             <Button
               type="button"
               variant="outline"
-              onClick={() => closePanel()}
-              disabled={loading}
-              className="rounded-xl cursor-pointer"
+              size="sm"
+              onClick={() => append({ full_name: '', relationship: 'me', phone: '', email: '', occupation: '', is_primary: fields.length === 0 })}
+              className="rounded-xl cursor-pointer text-xs"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
             >
-              Hủy
-            </Button>
-            <Button
-              type="submit"
-              loading={loading}
-              disabled={loading}
-              className="rounded-xl cursor-pointer"
-            >
-              {student ? 'Lưu thay đổi' : 'Tạo mới'}
+              Thêm phụ huynh
             </Button>
           </div>
-        </form>
-      </div>
+
+          <div className="space-y-4 pr-1">
+            {fields.map((field, index) => {
+              const isPrimary = watch(`guardians.${index}.is_primary`);
+              
+              return (
+                <div 
+                  key={field.id}
+                  className="border border-outline-variant/40 rounded-2xl p-4 space-y-4 relative bg-surface-container-low/20"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-primary uppercase tracking-wider">Phụ huynh #{index + 1}</span>
+                    
+                    <div className="flex items-center gap-3">
+                      {/* Set Primary Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimary(index)}
+                        className={cn(
+                          "flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer",
+                          isPrimary
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-transparent text-on-surface-variant hover:text-on-surface border-outline-variant"
+                        )}
+                      >
+                        <Check className="w-3 h-3" />
+                        {isPrimary ? 'Người nhận liên lạc chính' : 'Đặt làm người liên lạc chính'}
+                      </button>
+
+                      {/* Delete Button */}
+                      {fields.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          className="text-error hover:bg-error/5 p-1.5 rounded-xl transition-colors cursor-pointer"
+                          title="Xóa phụ huynh"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Họ và tên"
+                      placeholder="Nhập họ tên phụ huynh..."
+                      leftIcon={<User />}
+                      error={errors.guardians?.[index]?.full_name?.message}
+                      {...register(`guardians.${index}.full_name` as const)}
+                    />
+
+                    <Select
+                      label="Quan hệ với bé"
+                      options={[
+                        { value: 'cha', label: 'Bố' },
+                        { value: 'me', label: 'Mẹ' },
+                        { value: 'ong', label: 'Ông' },
+                        { value: 'ba', label: 'Bà' },
+                        { value: 'khac', label: 'Người giám hộ khác' },
+                      ]}
+                      error={errors.guardians?.[index]?.relationship?.message}
+                      {...register(`guardians.${index}.relationship` as const)}
+                    />
+
+                    <Input
+                      label="Số điện thoại"
+                      placeholder="09xxxxxxxx..."
+                      leftIcon={<Phone />}
+                      error={errors.guardians?.[index]?.phone?.message}
+                      {...register(`guardians.${index}.phone` as const)}
+                    />
+
+                    <Input
+                      label="Địa chỉ email"
+                      placeholder="parent@example.com..."
+                      leftIcon={<Mail />}
+                      error={errors.guardians?.[index]?.email?.message}
+                      {...register(`guardians.${index}.email` as const)}
+                    />
+
+                    <Input
+                      label="Nghề nghiệp"
+                      placeholder="Ví dụ: Công nhân, Giáo viên..."
+                      leftIcon={<Briefcase />}
+                      error={errors.guardians?.[index]?.occupation?.message}
+                      {...register(`guardians.${index}.occupation` as const)}
+                    />
+
+                    <Input
+                      label="Căn cước công dân (CCCD)"
+                      placeholder="Nhập số CCCD..."
+                      error={errors.guardians?.[index]?.citizen_id?.message}
+                      {...register(`guardians.${index}.citizen_id` as const)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex justify-end gap-3 pt-6 border-t border-outline-variant/40 mt-6 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => closePanel()}
+            disabled={loading}
+            className="rounded-xl cursor-pointer"
+          >
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            loading={loading}
+            disabled={loading}
+            className="rounded-xl cursor-pointer"
+          >
+            {student ? 'Lưu thay đổi' : 'Tạo mới'}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 };

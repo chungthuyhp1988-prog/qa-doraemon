@@ -41,6 +41,21 @@ interface ExcelStudentRow {
   [header: string]: string | number | undefined;
 }
 
+/** Helper to split full name into first name and middle/last name for Vietnamese sorting */
+const getVietnameseSortKeys = (fullName: string) => {
+  const trimmed = (fullName || '').trim();
+  if (!trimmed) return { firstName: '', middleAndLastName: '' };
+  
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], middleAndLastName: '' };
+  }
+  const firstName = parts[parts.length - 1]; // Tên chính
+  const middleAndLastName = parts.slice(0, parts.length - 1).join(' '); // Họ và đệm
+  
+  return { firstName, middleAndLastName };
+};
+
 export function Students() {
   const { openPanel } = useSlidePanel();
   const queryClient = useQueryClient();
@@ -52,6 +67,7 @@ export function Students() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedClassId, setSelectedClassId] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
+  const [selectedPriority, setSelectedPriority] = useState<string>("all");
   const [pageSize, setPageSize] = useState(25);
   
   // Selection state for Bulk Actions
@@ -67,9 +83,10 @@ export function Students() {
     setSelectedKeys(new Set());
   }, [selectedAcademicYearId]);
 
-  // Reset selection when tab or class changes
+  // Reset selection and priority filter when tab or class changes
   useEffect(() => {
     setSelectedKeys(new Set());
+    setSelectedPriority("all");
   }, [selectedStatus, selectedClassId]);
 
   // Debounce search term
@@ -129,12 +146,14 @@ export function Students() {
         apiPageSize = 1000;
       }
 
+      const isWaitingOrFuture = selectedStatus === 'waiting' || selectedStatus === 'future';
+
       return api.getAll<StudentWithRelations>(
         'students',
         {
           page: 1,
           pageSize: apiPageSize,
-          sortBy: 'full_name',
+          sortBy: isWaitingOrFuture ? 'registration_date' : 'full_name',
           sortOrder: 'asc'
         },
         {
@@ -150,18 +169,64 @@ export function Students() {
   const rawStudentsData: StudentWithRelations[] = studentsResponse?.data?.data ?? [];
 
   // Client-side filtering for waiting and future lists based on birth year
-  const studentsData = rawStudentsData.filter((student) => {
+  // Client-side filtering for waiting and future lists based on birth year and priority status
+  const filteredStudents = rawStudentsData.filter((student) => {
+    // 1. Filter by status / birth year based on tab
     if (selectedStatus === 'waiting') {
       if (!student.date_of_birth) return true;
       const birthYear = new Date(student.date_of_birth).getFullYear();
-      return birthYear === 2023 || birthYear === 2024;
+      if (birthYear !== 2023 && birthYear !== 2024) return false;
     }
     if (selectedStatus === 'future') {
       if (!student.date_of_birth) return false;
       const birthYear = new Date(student.date_of_birth).getFullYear();
-      return birthYear === 2025 || student.target_school_year === '2027-2028';
+      const isFutureYear = birthYear === 2025 || student.target_school_year === '2027-2028';
+      if (!isFutureYear) return false;
     }
+
+    // 2. Filter by priority status
+    if (selectedPriority !== "all") {
+      const priorityVal = student.priority_status || "";
+      if (selectedPriority === "none") {
+        if (priorityVal !== "") return false;
+      } else {
+        if (priorityVal !== selectedPriority) return false;
+      }
+    }
+
     return true;
+  });
+
+  // Client-side sorting based on active tab
+  const studentsData = [...filteredStudents].sort((a, b) => {
+    const isWaitingOrFuture = selectedStatus === 'waiting' || selectedStatus === 'future';
+    
+    if (isWaitingOrFuture) {
+      // Sort by registration_date asc (nulls at the end)
+      const dateA = a.registration_date ? new Date(a.registration_date).getTime() : Infinity;
+      const dateB = b.registration_date ? new Date(b.registration_date).getTime() : Infinity;
+      if (dateA !== dateB) {
+        return dateA - dateB;
+      }
+    }
+    
+    // Sort by Vietnamese first name first (alphabe), then by middle and last name
+    const nameA = getVietnameseSortKeys(a.full_name || '');
+    const nameB = getVietnameseSortKeys(b.full_name || '');
+    
+    const compareFirstName = nameA.firstName.localeCompare(nameB.firstName, 'vi', {
+      sensitivity: 'base',
+      numeric: true
+    });
+    
+    if (compareFirstName !== 0) {
+      return compareFirstName;
+    }
+    
+    return nameA.middleAndLastName.localeCompare(nameB.middleAndLastName, 'vi', {
+      sensitivity: 'base',
+      numeric: true
+    });
   });
 
   const totalCount = selectedStatus === 'waiting' || selectedStatus === 'future' 
@@ -264,6 +329,7 @@ export function Students() {
     setSearch("");
     setSelectedClassId("all");
     setSelectedStatus("active");
+    setSelectedPriority("all");
     setPageSize(25);
   };
 
@@ -472,11 +538,11 @@ export function Students() {
           id: studentId,
           school_id: schoolId,
           class_id: classId,
-          student_code: studentCode,
-          full_name: fullName.trim(),
+          student_code: String(studentCode),
+          full_name: String(fullName).trim(),
           date_of_birth: dob,
           gender: gender,
-          address: address ? address.trim() : null,
+          address: address ? String(address).trim() : null,
           enrollment_date: enrollDate,
           status: status,
           priority_status: priorityStatus ? String(priorityStatus).trim() : null,
@@ -496,7 +562,7 @@ export function Students() {
           guardiansPayload.push({
             id: crypto.randomUUID(),
             student_id: studentId,
-            full_name: motherName.trim(),
+            full_name: String(motherName).trim(),
             relationship: 'me',
             phone: String(motherPhone).trim(),
             is_primary: true,
@@ -510,7 +576,7 @@ export function Students() {
           guardiansPayload.push({
             id: crypto.randomUUID(),
             student_id: studentId,
-            full_name: fatherName.trim(),
+            full_name: String(fatherName).trim(),
             relationship: 'cha',
             phone: String(fatherPhone).trim(),
             is_primary: guardiansPayload.length === 0,
@@ -521,7 +587,7 @@ export function Students() {
         }
 
         if (guardiansPayload.length > 0) {
-          const guardianRes = await api.createMany('guardians', guardiansPayload);
+          const guardianRes = await api.createMany('guardians', guardiansPayload as any[]);
           if (guardianRes.error) {
             console.error("Lỗi khi thêm phụ huynh:", guardianRes.error);
           }
@@ -885,6 +951,22 @@ export function Students() {
                 </option>
               );
             })}
+          </select>
+        )}
+
+        {/* Priority Filter - Only visible for Waiting, Future and Registered tabs */}
+        {(selectedStatus === 'waiting' || selectedStatus === 'future' || selectedStatus === 'registered') && (
+          <select 
+            value={selectedPriority}
+            onChange={(e) => setSelectedPriority(e.target.value)}
+            className="border border-outline-variant/50 rounded-xl px-3.5 py-2 text-[14px] bg-transparent focus:outline-none focus:border-primary transition-colors cursor-pointer font-semibold text-on-surface-variant"
+          >
+            <option value="all">Tất cả đối tượng ưu tiên</option>
+            <option value="Con GVNV">Ưu tiên 1 (Con GVNV)</option>
+            <option value="Anh chị đang học ở trường">Ưu tiên 2 (Anh chị đang học ở trường)</option>
+            <option value="HĐQT">Ưu tiên 3 (HĐQT)</option>
+            <option value="Phụ huynh cũ">Ưu tiên 4 (Phụ huynh cũ)</option>
+            <option value="none">Không ưu tiên</option>
           </select>
         )}
 
